@@ -1,32 +1,53 @@
-# Analysis of the virus content in strains of amoeba based on a predetermined list of viruses.
+# Genome analysis of Acanthamoeba castellanii Neff and "old" strains. Includes
+# * Viral and bacterial gene content
+# * Synteny analysis
+# * Gene annotation stats
+# * comparative analysis between both strains
+# Input amobea genomes assembled using long reads, shotgun Illumina and Hi-C
+
 # cmdoret, 20190410
+
 shell.executable("/bin/bash")
 from Bio import SeqIO
 import re
+from os.path import join
+from src import fasta_utils as fu
+from src import misc_utils as mu
 
 # Strains Neff and "old" of Acanthamoeba castellanii
-strains = ["Ac_neff", "Ac_old"]
+Acastellanii_strains = ["Ac_neff", "Ac_old"]
+# Bacterial groups of interest
+bacteria_groups = "Legionella,Rickettsia,Parachlamydia," + \
+                  "Protochlamydia,Amoebophilus,Procabacter"
+email = 'cmatthey@pasteur.fr'
+# email = input("Please enter your email to download refseq genomes.")
+
+# ===========================
+# Set file paths if needed
+DATA = 'data/'
+GENOMES = join(DATA, "input", 'genomes')
+ANNOT = join(DATA, "input", 'annotations')
+OUT = join(DATA, 'out')
+# ===========================
 
 rule all: 
-    input: expand("blast/{amoeba}.txt", amoeba=strains)
+    #input: expand("blast/{amoeba}.txt", amoeba=strains)
+    input : expand(join(GENOMES, 'others/{group}_euk_assoc.fasta'), group=["bacteria", 'virus'])
 
-rule get_virus_seq:
-    input: 
-        refseq = '/data/resources/db/refseq/refseq_viral_database_20190116.fasta',
-        vir_id = 'virus/accession.txt'
-    output: 
-        ac_vir = "fa/virus/{amoeba}_viruses.fa"
+# Download bacterial and viral genomes from interesting groups from Refseq.
+rule download_refseq:
+    input: join(GENOMES, 'others/{group}_accession.txt')
+    output: join(GENOMES, 'others/{group}_euk_assoc.fasta')
     run:
-      viruses = open(input.vir_id).read().splitlines()
-      found = []
-      with open(output.ac_vir, 'w') as ac_viruses:
-        for virus in SeqIO.parse(input.refseq, 'fasta'):
-          if re.search("|".join(viruses), virus.id):
-            virus.id = re.search(r'[^\.]*', virus.id).group()
-            found.append(virus.id)
-            SeqIO.write(virus, ac_viruses, 'fasta')
-      print("%d viruses found among the %d queries." % (len(found), len(viruses)))
-
+        num_ids = sum(1 for line in open(input[0], 'r'))
+        with open(output[0], 'w') as out_fa, open(input[0], 'r') as in_id:
+            id_number = 0
+            for seq_id in in_id:
+                mu.progbar(id_number, num_ids, "Downloading genomes")
+                genome = fu.fetch_refseq_genome(seq_id, email=email)
+                SeqIO.write(genome, out_fa, 'fasta')
+                id_number += 1
+    
 
 rule make_blast_db:
     input: "fa/amoeba/{amoeba}.fa"
@@ -50,3 +71,6 @@ rule hist:
     output: "hists/{id}.png"
     shell: "scripts/hist.R {input} {output}"
 
+rule mcscanx_virus:
+    input:
+    output:
