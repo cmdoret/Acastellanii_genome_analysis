@@ -31,7 +31,7 @@ def retrieve_refseq_ids(in_ids, db, out_fa):
     print("%d genomes found among the %d queries." % (len(found), len(query_ids)))
 
 
-def fetch_refseq_genome(seq_id, email="someone@email.com"):
+def fetch_fasta(seq_id, db="nuccore", email="someone@email.com"):
     """
     Downloads a genome corresponding to input sequence ID.
     
@@ -39,6 +39,10 @@ def fetch_refseq_genome(seq_id, email="someone@email.com"):
     ----------
     seq_id : str
         A refseq sequence accession ID (e.g. NC_19130).
+    db : str
+        A valid Entrez database name. Some possible values are: cdd, gap, dbvar,
+        epigenomics, nucest, gene, genome, gds, geoprofiles, nucgss, homologene,
+        mesh, nuccore, protein, snp, sra, taxonomy, unigene
     email : str
         User email address to download from refseq.
 
@@ -49,12 +53,44 @@ def fetch_refseq_genome(seq_id, email="someone@email.com"):
     """
     Entrez.email = email
     try:
-        with Entrez.efetch(
-            db="nuccore", rettype="fasta", retmode="full", id=seq_id
-        ) as handle:
+        with Entrez.efetch(db=db, rettype="fasta", retmode="text", id=seq_id) as handle:
             seq_record = SeqIO.read(handle, "fasta")
     except:
         print("No sequence found for %s" % seq_id)
+        seq_record = None
+    return seq_record
+
+
+def name_to_proteins(name, db="protein", email="someone@email.com"):
+    """
+    Given an organism name, fetch all available protein sequences.
+
+    Parameters
+    ----------
+    name : str
+        Name of an organism or group of organism (e.g. Legionella).
+    db : str
+        Entrez db name to use for the search.
+    email : str
+        User email for identification.
+
+    Returns
+    -------
+    seq_record : Bio.Seq
+        Seq object containing the query Fasta record.
+    
+    """
+    Entrez.email = email
+    try:
+        # First search to see the number of hits (returns values for 10 by default)
+        query = Entrez.read(Entrez.esearch(term=name + "[Orgn]", db=db))
+        # Get N hits
+        count = query["Count"]
+        # Real search, specifying max number of values
+        query = Entrez.read(Entrez.esearch(term=name + "[Orgn]", db=db, retmax=count))
+        seq_record = Entrez.efetch(id=query["IdList"], rettype="fasta", db=db)
+    except:
+        print("No sequence found for %s" % name)
         seq_record = None
     return seq_record
 
