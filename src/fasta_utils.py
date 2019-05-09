@@ -3,6 +3,7 @@
 # cmdoret, 20190502
 from Bio import SeqIO
 from Bio import Entrez
+from BCBio import GFF  # from package bcbio-gff
 import re
 
 
@@ -76,21 +77,21 @@ def name_to_proteins(name, db="protein", email="someone@email.com"):
 
     Returns
     -------
-    seq_record : Bio.Seq
-        Seq object containing the query Fasta record.
+    seq_record : TextIOWrapper
+        iterable object containing the query Fasta records.
     
     """
     Entrez.email = email
     try:
         # First search to see the number of hits (returns values for 10 by default)
-        query = Entrez.read(Entrez.esearch(term=name + "[Orgn]", db=db))
+        query = Entrez.read(Entrez.esearch(term=name + "[Orgn]", db=db, email=email))
         # Get N hits
         count = query["Count"]
         # Real search, specifying max number of values
         query = Entrez.read(Entrez.esearch(term=name + "[Orgn]", db=db, retmax=count))
-        seq_record = Entrez.efetch(id=query["IdList"], rettype="fasta", db=db)
+        seqs = Entrez.efetch(id=query["IdList"], rettype="fasta", db=db)
     except:
         print("No sequence found for %s" % name)
-        seq_record = None
-    return seq_record
+        seqs = None
+    return seqs
 

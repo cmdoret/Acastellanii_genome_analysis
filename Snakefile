@@ -11,6 +11,7 @@ shell.executable("/bin/bash")
 from Bio import SeqIO
 import re
 from os.path import join
+import numpy as np
 from src import fasta_utils as fu
 from src import misc_utils as mu
 
@@ -49,7 +50,8 @@ DB = join(IN, 'db')
 rule all:
     input: 
         expand(join(OUT, "blast", "{groups}.{amoeba}.txt"), 
-                   groups=list(taxo_groups.keys()), amoeba=Acastellanii_strains)
+                   groups=list(taxo_groups.keys()), amoeba=Acastellanii_strains),
+        join(OUT, "MCScanX", "MCScanX_genomes.fa")
 
 
 # 01 Download bacterial and viral genomes from interesting species
@@ -66,18 +68,25 @@ rule fetch_genomes:
                 SeqIO.write(genome, out_fa, 'fasta')
                 id_number += 1
 
+
 # 02 Download all protein sequences from bacterial and viral groups of interest
 rule fetch_proteins:
-    output: expand(join(ANNOT, 'others', '{group}_proteins.fa'),group=taxo_groups.keys()) 
+    output: join(ANNOT, 'others', '{group}_proteins.fa')
     params:
+        organisms = lambda wildcards: taxo_groups["{}".format(wildcards.group)]
     run:
-        num_ids = len(taxo_groups['{group}'])
+        num_ids = len(params['organisms'])
         with open(output[0], 'w') as out_fa:
             id_number = 0
-            for organism in taxo_groups['{group}']:
+            for organism in params['organisms']:
                 mu.progbar(id_number, num_ids, "Downloading proteins")
-                fu.name_to_proteins(organism, email=email)
+                prots = fu.name_to_proteins(organism, email=email)
+                try:
+                    for prot in prots: out_fa.write(prot)
+                except TypeError:
+                    pass
                 id_number += 1
+
 
 # 03 Make a nucleotide blast database of amoeba
 rule make_blastn_db:
@@ -86,6 +95,7 @@ rule make_blastn_db:
     params:
         db = join(DB, 'blast', '{amoeba}.blastdb')
     shell: "makeblastdb -in {input} -input_type fasta -dbtype nucl -out {params.db} && sleep 5"
+
 
 # 04 Find other genomes which have hits in the amoeba
 rule query_genomes:
@@ -108,11 +118,42 @@ rule query_genomes:
                -out {output}
         """
 
-rule hist:
-    input: "lengths/{id}.data"
-    output: "hists/{id}.png"
-    shell: "scripts/hist.R {input} {output}"
 
+# 05 Select proteins from hosts associated with amoeba
+rule filter_proteins:
+    input:
+        proteins = join(ANNOT, 'others', '{group}_proteins.fa'),
+        select_id = expand(join(OUT, 'blast', '{group}.{amoeba}.txt'), group=taxo_groups.keys(), amoeba=Acastellanii_strains)
+    output: join(TMP, "{group}_proteins_filtered.fa")
+    run:
+        # Get unique virus / bact IDs that blasted agains amoeba genomes
+        ids = np.loadtxt(input['select_id'], usecols=(0,), delimiter='\t', dtype=str)
+        ids = set(ids)
+        # Write fasta with proteins of those organisms
+        with open(output[0], 'w') as out_fa:
+            for rec in SeqIO.parse(input['proteins'], 'fasta'):
+                if rec.id in ids:
+                    SeqIO.write(rec, out_fa, 'fasta')
+
+
+# 06 Combine filtered genomes from all amoeba-host group combo and rm duplicates entries
+rule merge_genomes:
+    input: expand(join(TMP, "{group}_proteins_filtered.fa"), group=taxo_groups.keys(), amoeba=Acastellanii_strains)
+    output: join(OUT, "MCScanX", "MCScanX_genomes.fa")
+    run:
+        consumed_ids = []
+        for genome in input[:]:
+            for rec in SeqIO.parse(genome, 'fasta'):
+                if rec.id not in consumed_ids:
+                    consumed_ids.append(rec.id)
+                    SeqIO.write(rec, output[0], 'fasta')
+
+# 06 Get collinearity blocks between amoeba, viruses and bacteria
 rule mcscanx_virus:
     input:
+        combined_fasta = join(OUT, "MCScanX", "MCScanX_genomes,fa")
     output:
+
+
+# Compares new Neff assembly with old one
+rule comp_neff:
