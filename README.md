@@ -5,3 +5,13 @@ The assembly process was done by combining Oxford Nanopore long reads with illum
 
 The comparative analysis can be run using the Snakefile.
 
+Requirements:
+* python3
+    + snakemake
+    + Biopython
+    + BCBio
+    + numpy
+* R 3.5.x
+    + tidyverse
+    + GenomicRanges
+    + ggbio
