@@ -3,7 +3,7 @@
 # cmdoret, 20190502
 from Bio import SeqIO
 from Bio import Entrez
-from BCBio import GFF  # from package bcbio-gff
+from BCBio import GFF
 import re
 
 
@@ -95,3 +95,25 @@ def name_to_proteins(name, db="protein", email="someone@email.com"):
         seqs = None
     return seqs
 
+
+def retrieve_id_annot(id, out_gff, mode="w", email="someone@email.com"):
+    """
+    Queries genbank record for an input ID and retrieves the genome annotations
+    in GFF format. Amino acid sequences are included in the GFF.
+    
+    Parameters
+    ----------
+    id : str
+        Sequence accession ID to query via Entrez.
+    out_gff : str
+        Path to the output GFF file.
+    mode : str
+        Mode in which to open the output GFF file. Should be 'w' or 'a'.
+    email : str
+        Personal email to provide when querying Entrez.
+
+    """
+    handle = Entrez.efetch(id=id, db="nucleotide", email=email, rettype="gb")
+    record = SeqIO.parse(handle, "genbank")
+    with open(out_gff, mode) as gff_handle:
+        GFF.write(record, gff_handle, include_fasta=True)
