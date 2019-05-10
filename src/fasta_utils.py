@@ -32,7 +32,7 @@ def retrieve_refseq_ids(in_ids, db, out_fa):
     print("%d genomes found among the %d queries." % (len(found), len(query_ids)))
 
 
-def fetch_fasta(seq_id, db="nuccore", email="someone@email.com"):
+def fetch_fasta(seq_id, db="nucleotide", email="someone@email.com"):
     """
     Downloads a genome corresponding to input sequence ID.
     
@@ -117,3 +117,32 @@ def retrieve_id_annot(id, out_gff, mode="w", email="someone@email.com"):
     record = SeqIO.parse(handle, "genbank")
     with open(out_gff, mode) as gff_handle:
         GFF.write(record, gff_handle, include_fasta=True)
+
+
+def gff_seq_extract(gff, fa):
+    """
+    Extracts sequence from the attributes of CDS in a GFF into a fasta file
+
+    Parameters
+    ----------
+    gff_in : str
+        Path to the input GFF file containing "translation" and "protein_id" attributes.
+    fa_out : str
+        Path to the fasta file where the protein sequences should be written.
+    """
+    with open(gff, "r") as gff_in, open(fa, "w") as fa_out:
+        for line in gff_in:
+            seq_ok, id_ok = False, False
+            fields = line.split("\t")
+            if fields[2] == "CDS" and not fields[0].startswith("#>"):
+                desc = fields[-1].split(";")
+                for attr in desc:
+                    if re.search("protein_id=", attr):
+                        prot_id = attr.split("=")[1]
+                        id_ok = True
+                    elif re.search("translation=", attr):
+                        seq = attr.split("=")[1]
+                        seq_ok = True
+            if seq_ok and id_ok:
+                fa_out.writelines([prot_id, seq])
+

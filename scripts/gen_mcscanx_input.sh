@@ -23,7 +23,6 @@ EOF
 # Parsing CL arguments
 while getopts ":g:o:r:p:c:lh" opt; do
    case $opt in
-   g )  GFF=${OPTARG} ;;
    o )  OUT_F=${OPTARG} ;;
    r )  REF=${OPTARG};;
    h )  usage ;;
