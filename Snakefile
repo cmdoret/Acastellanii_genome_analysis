@@ -17,7 +17,7 @@ from src import fasta_utils as fu
 from src import misc_utils as mu
 
 # Strains Neff and "old" of Acanthamoeba castellanii
-Acastellanii_strains = ["Neff", "Old"]
+Acastellanii_strains = ["Neff", "C3"]
 # Bacterial and viral groups of interest
 taxo_groups = {
     'bacteria': [
