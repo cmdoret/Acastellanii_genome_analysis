@@ -5,24 +5,33 @@
 library(tidyverse)
 args <- commandArgs(trailingOnly=TRUE)
 
-# input
+### GET ARGS ###
 in_gff <- args[1]
-
-# output
 out_plot <- args[2]
 
-# load gff
+### LOAD DATA ###
 gff <- read_tsv(in_gff, comment="#", col_names=F)
 colnames(gff) <- c("chrom", "source", "type", "start", "end", "score", "strand", "phase", "attributes")
 gff <- gff %>% filter(type %in% c("mRNA", "CDS", "gene", "exon", "tRNA"))
-# compute stats
+
+### COMPUTE STATS ###
+
+# N exon / gene
+gff %>% 
+    mutate(ID=str_split(str_extract(attributes, 'ID=[^;]*'), '=', n=2)[[1]][2]) %>%
+    group_by(ID) %>%
+    mutate(N_exons=tally(type))
+# Annotated product (Y/N)
+
+# N GO term
+
+### VISUALISE ###
 
 clean_name <- strsplit(basename(in_gff), "\\.")[[1]]
-# visualise
 # Length distribution of different types
 n_obs <- function(x){return(data.frame(y=0, label=paste0("n=", length(x))))}
-pdf(out_plot)
-ggplot(data=gff, aes(x=type, y=log10(end - start))) + 
+
+feature_len <- ggplot(data=gff, aes(x=type, y=log10(end - start))) + 
     geom_violin(scale='width') + 
     stat_summary(fun.data = n_obs, geom = "text") +
     theme_bw() +
@@ -30,5 +39,13 @@ ggplot(data=gff, aes(x=type, y=log10(end - start))) +
     ylab("log10 length") + 
     ggtitle(clean_name)
 
+exon_per_gene <- ggplot(data=gff, aes()) +
+    geom_point()
+
+### SAVE OUTPUT ###
+pdf(out_plot)
+
+
 dev.off()
-# N exon / gene
+
+
