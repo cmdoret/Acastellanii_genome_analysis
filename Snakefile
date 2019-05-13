@@ -10,6 +10,7 @@
 shell.executable("/bin/bash")
 from Bio import SeqIO
 import re
+import time
 from os.path import join
 import numpy as np
 from src import fasta_utils as fu
@@ -32,7 +33,7 @@ taxo_groups = {
         ]
 }
 
-email = 'cmatthey@pasteur.fr'
+email = input("enter email adress for genome queries: ")
 # email = input("Please enter your email to download refseq genomes.")
 
 # ===========================
@@ -52,12 +53,13 @@ rule all:
         expand(join(OUT, "blast", "{groups}.{amoeba}.txt"), 
                    groups=list(taxo_groups.keys()), amoeba=Acastellanii_strains),
         join(OUT, "MCScanX", "MCScanX_genomes.fa"), 
-        expand(join(TMP, "{group}_genomes_filtered.fa"), group=taxo_groups.keys())
+        expand(join(TMP, "{group}_genomes_filtered.fa"), group=taxo_groups.keys()),
+        expand(join(OUT, 'plots', '{amoeba}_annot_stats.pdf'), amoeba=["Neff", "NEFF_v1.43"])
 
 # 00 General annotations stats from GFF files
 rule amoeba_annot_stats:
     input: join(ANNOT, 'amoeba', '{amoeba}.gff')
-    output: join(OUT, 'plots', '{amoeba}_annot_stats.gff')
+    output: join(OUT, 'plots', '{amoeba}_annot_stats.pdf')
     shell: "Rscript scripts/annot_stats.R {input} {output}"
 
 # 01 Download bacterial and viral genomes from interesting species
@@ -70,6 +72,7 @@ rule fetch_genomes:
             id_number = 0
             for seq_id in in_id:
                 mu.progbar(id_number, num_ids, "Downloading genomes")
+                time.sleep(1) # Do not spam NCBI :)
                 genome = fu.fetch_fasta(seq_id, email=email)
                 try:
                     SeqIO.write(genome, out_fa, 'fasta')
@@ -89,6 +92,7 @@ rule fetch_annotations:
             id_number = 0
             for seq_id in in_id:
                 mu.progbar(id_number, num_ids, "Downloading annotations")
+                time.sleep(1)
                 fu.retrieve_id_annot(seq_id, output[0], mode='a', email=email)
                 id_number += 1
 
@@ -128,7 +132,7 @@ rule blast_genomes_vs_amoeba:
 rule filter_genomes:
     input:
         genomes = join(GENOMES, 'others', '{group}_euk_assoc.fa'),
-        annot = join(ANNOT, "others", "{group}_annot.gff")
+        annot = join(ANNOT, "others", "{group}_annot.gff"),
         select_id = expand(join(OUT, 'blast', '{group}.{amoeba}.txt'), group=taxo_groups.keys(), amoeba=Acastellanii_strains)
     output: 
         join(TMP, "{group}_genomes_filtered.fa"),
