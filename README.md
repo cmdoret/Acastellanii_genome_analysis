@@ -11,7 +11,9 @@ Requirements:
     + Biopython
     + BCBio
     + numpy
+    + pandas
 * R 3.5.x
     + tidyverse
     + GenomicRanges
     + ggbio
+    + gridExtra
