@@ -13,6 +13,7 @@ import re
 import time
 from os.path import join
 import numpy as np
+import pandas as pd
 from src import fasta_utils as fu
 from src import misc_utils as mu
 
@@ -33,7 +34,7 @@ taxo_groups = {
         ]
 }
 
-email = input("enter email adress for genome queries: ")
+email = 'cmatthey@pasteur.fr'
 # email = input("Please enter your email to download refseq genomes.")
 
 # ===========================
@@ -46,52 +47,59 @@ GENOMES = join(IN, 'genomes')
 ANNOT = join(IN, 'annotations')
 DB = join(IN, 'db')
 
+vir_df = pd.read_csv(join(IN, 'misc', 'virus_names.tsv'), sep='\t', header=None)
+bact_df = pd.read_csv(join(IN, 'misc', 'bacteria_names.tsv'), sep='\t', header=None)
+
 # ===========================
 
 rule all:
     input: 
         expand(join(OUT, "blast", "{groups}.{amoeba}.txt"), 
                    groups=list(taxo_groups.keys()), amoeba=Acastellanii_strains),
-        join(OUT, "MCScanX", "MCScanX_genomes.fa"), 
+        join(OUT, 'orthoMCL', 'orthoMCL_all_groups.txt'),
         expand(join(TMP, "{group}_genomes_filtered.fa"), group=taxo_groups.keys()),
         expand(join(OUT, 'plots', '{amoeba}_annot_stats.pdf'), amoeba=["Neff", "NEFF_v1.43"])
 
-# 00 General annotations stats from GFF files
+
+# 00 General annotations stats from amoeba GFF files
 rule amoeba_annot_stats:
     input: join(ANNOT, 'amoeba', '{amoeba}.gff')
     output: join(OUT, 'plots', '{amoeba}_annot_stats.pdf')
     shell: "Rscript scripts/annot_stats.R {input} {output}"
 
+
 # 01 Download bacterial and viral genomes from interesting species
 rule fetch_genomes:
-    input:  join(GENOMES, 'others', '{group}_accession.txt')
+    input:  join(IN, 'misc', '{group}_names.tsv')
     output: join(GENOMES, 'others', '{group}_euk_assoc.fa')
     run:
         num_ids = sum(1 for line in open(input[0], 'r'))
         with open(output[0], 'w') as out_fa, open(input[0], 'r') as in_id:
             id_number = 0
-            for seq_id in in_id:
-                mu.progbar(id_number, num_ids, "Downloading genomes")
-                time.sleep(1) # Do not spam NCBI :)
+            for organism in in_id:
+                seq_id = organism.split("\t")[0]
+                mu.progbar(id_number, num_ids, "Downloading %s genomes      " % wildcards['group'])
+                time.sleep(0.1) # Do not spam NCBI :)
                 genome = fu.fetch_fasta(seq_id, email=email)
                 try:
                     SeqIO.write(genome, out_fa, 'fasta')
                     id_number += 1
                 except TypeError:
                     pass
-                
 
 
 # 02 Download all protein sequences from bacterial and viral groups of interest
 rule fetch_annotations:
-    input:  join(GENOMES, 'others', '{group}_accession.txt')
+    input:
+        join(IN, 'misc', '{group}_names.tsv'),
     output: join(ANNOT, 'others', '{group}_annot.gff')
     run:
         num_ids = sum(1 for line in open(input[0], 'r'))
         with open(input[0], 'r') as in_id:
             id_number = 0
-            for seq_id in in_id:
-                mu.progbar(id_number, num_ids, "Downloading annotations")
+            for organism in in_id:
+                seq_id = organism.split('\t')[0]
+                mu.progbar(id_number, num_ids, "Downloading %s annotations     " % wildcards['group'])
                 time.sleep(1)
                 fu.retrieve_id_annot(seq_id, output[0], mode='a', email=email)
                 id_number += 1
@@ -146,7 +154,6 @@ rule filter_genomes:
         # Write fasta with only genomes of those organisms
         with open(output[0], 'w') as out_fa:
             for rec in SeqIO.parse(input['genomes'], 'fasta'):
-                print(rec.id)
                 if rec.id in ids:
                     SeqIO.write(rec, out_fa, 'fasta')
 
@@ -155,7 +162,7 @@ rule filter_genomes:
                 if record.split('\t')[0] in ids:
                     out_gff.write(record)
 
-# 06 Extract protein sequence from bact /vir GFF
+# 06 Extract protein sequence from bact / vir GFF
 rule extract_prot_seq:
     input: join(TMP, "{group}_annot_filtered.gff")
     output: join(TMP, "{group}_prot_filtered.fa")
@@ -170,6 +177,48 @@ rule make_other_blastn_db:
     params:
         db = join(DB, 'blast', '{group}.blastdb')
     shell: "makeblastdb -in {input} -input_type fasta -dbtype nucl -out {params.db} && sleep 5"
+
+            
+# 08 Adjust fasta headers of amoeba, virus and bacteria proteomes and combine all into a single fasta
+rule prepare_orthoMCL_proteins:
+    input:
+        join(ANNOT, 'amoeba', 'Neff_proteins.fa'),
+        join(TMP, "bacteria_prot_filtered.fa"), 
+        join(TMP, "virus_prot_filtered.fa")
+    output:
+        join(OUT, 'orthoMCL', 'fasta', 'all_proteins_orthoMCL.fa')
+    run:
+        with open(output[0], 'w') as mcl_fa:
+            # All A. castellanii Neff headers prefixed with Acn|
+            for neff_prot in SeqIO.parse(input[0], 'fasta'):
+                neff_prot.id = "Acn|" + neff_prot.id
+                neff_prot.description = ""
+                SeqIO.write(neff_prot, mcl_fa, 'fasta')
+            # Replace bacteria and virus seq ID by 3-4 letters orthoMCL taxon ID
+            for in_file, tbl in zip([input[1], input[2]], [bact_df, vir_df]):
+                for prot in SeqIO.parse(in_file, 'fasta'):
+                    prot_info = str(prot.id).split('|')
+                    try:
+                        mcl_id = tbl.loc[tbl[0] == prot_info[0], 1].values[0]
+                    except IndexError:
+                        continue
+                    prot.id = mcl_id + "|" + prot_info[1]
+                    prot.description = ""
+                    SeqIO.write(prot, mcl_fa, 'fasta')
+
+
+# 09 Pull and setup orthoMCL docker container, then run the ortholog group analysis
+rule orthoMCL:
+    input: join(OUT, 'orthoMCL', 'fasta', 'all_proteins_orthoMCL.fa')
+    output: join(OUT, 'orthoMCL', 'orthoMCL_all_groups.txt')
+    params:
+        config = join('scripts', 'orthoMCL.config')
+    shell:
+        """
+        outdir=$PWD/$(dirname {output})
+        cp {params.config} $outdir
+        bash scripts/orthoMCL_setup.sh $outdir
+        """
 
 
 # 06 Combine filtered genomes from all amoeba-host group combo and rm duplicates entries
