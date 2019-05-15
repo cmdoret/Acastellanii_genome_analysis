@@ -4,7 +4,42 @@
 from Bio import SeqIO
 from Bio import Entrez
 from BCBio import GFF
+import urllib
+import time
 import re
+
+
+def safe_ncbi_request(fun):
+    """
+    Wraps function requesting data from ncbi to allow safe errors and retry.
+    
+    Parameters
+    ----------
+    fun : python function
+        The python function that queries ncbi servers
+    
+    Returns
+    -------
+    wrapped_f : python function
+        A wrapped version of the input function which will call itself recursively
+        every 5 seconds if the server is overloaded and will return None if the
+        query record does not exist
+    """
+
+    def wrapped_f(*args, **kwargs):
+
+        try:
+            a = fun(*args, **kwargs)
+            return a
+        except urllib.error.HTTPError as e:
+            if e.code == 429:
+                time.sleep(5);
+                print("Sending too many requests, sleeping 5sec and retrying...")
+                fun(*args, **kwargs)
+            else:
+                print("No sequence found for %s" % args[0])
+                return None
+    return wrapped_f
 
 
 def retrieve_refseq_ids(in_ids, db, out_fa):
@@ -32,6 +67,7 @@ def retrieve_refseq_ids(in_ids, db, out_fa):
     print("%d genomes found among the %d queries." % (len(found), len(query_ids)))
 
 
+@safe_ncbi_request
 def fetch_fasta(seq_id, db="nucleotide", email="someone@email.com"):
     """
     Downloads a genome corresponding to input sequence ID.
@@ -53,15 +89,12 @@ def fetch_fasta(seq_id, db="nucleotide", email="someone@email.com"):
         Seq object containing the query Fasta record.
     """
     Entrez.email = email
-    try:
-        with Entrez.efetch(db=db, rettype="fasta", retmode="text", id=seq_id) as handle:
-            seq_record = SeqIO.read(handle, "fasta")
-    except:
-        print("No sequence found for %s" % seq_id)
-        seq_record = None
+    with Entrez.efetch(db=db, rettype="fasta", retmode="text", id=seq_id) as handle:
+        seq_record = SeqIO.read(handle, "fasta")
     return seq_record
 
 
+@safe_ncbi_request
 def name_to_proteins(name, db="protein", email="someone@email.com"):
     """
     Given an organism name, fetch all available protein sequences.
@@ -82,20 +115,17 @@ def name_to_proteins(name, db="protein", email="someone@email.com"):
     
     """
     Entrez.email = email
-    try:
-        # First search to see the number of hits (returns values for 10 by default)
-        query = Entrez.read(Entrez.esearch(term=name + "[Orgn]", db=db, email=email))
-        # Get N hits
-        count = query["Count"]
-        # Real search, specifying max number of values
-        query = Entrez.read(Entrez.esearch(term=name + "[Orgn]", db=db, retmax=count))
-        seqs = Entrez.efetch(id=query["IdList"], rettype="fasta", db=db)
-    except:
-        print("No sequence found for %s" % name)
-        seqs = None
+    # First search to see the number of hits (returns values for 10 by default)
+    query = Entrez.read(Entrez.esearch(term=name + "[Orgn]", db=db, email=email))
+    # Get N hits
+    count = query["Count"]
+    # Real search, specifying max number of values
+    query = Entrez.read(Entrez.esearch(term=name + "[Orgn]", db=db, retmax=count))
+    seqs = Entrez.efetch(id=query["IdList"], rettype="fasta", db=db)
     return seqs
 
 
+@safe_ncbi_request
 def retrieve_id_annot(id, out_gff, mode="w", email="someone@email.com"):
     """
     Queries genbank record for an input ID and retrieves the genome annotations
@@ -113,15 +143,18 @@ def retrieve_id_annot(id, out_gff, mode="w", email="someone@email.com"):
         Personal email to provide when querying Entrez.
 
     """
-    handle = Entrez.efetch(id=id, db="nucleotide", email=email, rettype="gb")
+    handle = Entrez.efetch(
+        id=id, db="nucleotide", email=email, rettype="gbwithparts", retmode="full"
+    )
     record = SeqIO.parse(handle, "genbank")
     with open(out_gff, mode) as gff_handle:
-        GFF.write(record, gff_handle, include_fasta=True)
+        GFF.write(record, gff_handle, include_fasta=False)
 
 
 def gff_seq_extract(gff, fa):
     """
-    Extracts sequence from the attributes of CDS in a GFF into a fasta file
+    Extracts sequence from the attributes of CDS in a GFF into a fasta file.
+    The fasta headers are in the format >chrom_id|prot_id
 
     Parameters
     ----------
@@ -144,5 +177,6 @@ def gff_seq_extract(gff, fa):
                         seq = attr.split("=")[1]
                         seq_ok = True
             if seq_ok and id_ok:
-                fa_out.writelines([prot_id, seq])
+                header = ">" + fields[0] + "|" + prot_id
+                fa_out.writelines([header, seq])
 
