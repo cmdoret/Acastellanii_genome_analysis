@@ -186,7 +186,7 @@ rule prepare_orthoMCL_proteins:
         join(TMP, "bacteria_prot_filtered.fa"), 
         join(TMP, "virus_prot_filtered.fa")
     output:
-        join(OUT, 'orthoMCL', 'fasta', 'all_proteins_orthoMCL.fa')
+        join(OUT, 'orthoMCL', 'fasta', 'all_proteins_orthoMCL.fasta')
     run:
         with open(output[0], 'w') as mcl_fa:
             # All A. castellanii Neff headers prefixed with Acn|
@@ -209,15 +209,16 @@ rule prepare_orthoMCL_proteins:
 
 # 09 Pull and setup orthoMCL docker container, then run the ortholog group analysis
 rule orthoMCL:
-    input: join(OUT, 'orthoMCL', 'fasta', 'all_proteins_orthoMCL.fa')
+    input: join(OUT, 'orthoMCL', 'fasta', 'all_proteins_orthoMCL.fasta')
     output: join(OUT, 'orthoMCL', 'orthoMCL_all_groups.txt')
+    threads: 12
     params:
         config = join('scripts', 'orthoMCL.config')
     shell:
         """
         outdir=$PWD/$(dirname {output})
         cp {params.config} $outdir
-        bash scripts/orthoMCL_setup.sh $outdir
+        bash scripts/orthoMCL_setup.sh {input} {threads} $outdir 
         """
 
 

@@ -33,12 +33,13 @@ def safe_ncbi_request(fun):
             return a
         except urllib.error.HTTPError as e:
             if e.code == 429:
-                time.sleep(5);
+                time.sleep(5)
                 print("Sending too many requests, sleeping 5sec and retrying...")
                 fun(*args, **kwargs)
             else:
                 print("No sequence found for %s" % args[0])
                 return None
+
     return wrapped_f
 
 
@@ -178,5 +179,5 @@ def gff_seq_extract(gff, fa):
                         seq_ok = True
             if seq_ok and id_ok:
                 header = ">" + fields[0] + "|" + prot_id
-                fa_out.writelines([header, seq])
+                fa_out.writelines([header + "\n", seq])
 

@@ -61,7 +61,6 @@ awk 'BEGIN{OFS="\t"}{print $1,$4,$2,$3}' "$OUT_BED" > "$OUT_GFF"
 OUT_SEQ="$OUT_BED.fasta"
 
 
-
 echo "Extracting gene sequences from reference genome"
 bedtools getfasta -fi $REF -bed $OUT_BED -fo $OUT_SEQ -name
 
