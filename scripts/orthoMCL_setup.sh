@@ -9,7 +9,7 @@ RUN_DIR=${3:-$PWD}
 MNT=/host_dir
 # Start MySQL
 echo "Starting MySQL container..."
-docker run --name orthomcl-mysql -e MYSQL_ROOT_PASSWORD=asdf1234 -e MYSQL_USER=orthomcl_user -e MYSQL_PASSWORD=shhh_this_is_secret -e MYSQL_DATABASE=orthomcl -d mysql | tee .ortho_mcl_db_container_id | head -n1
+docker run --name orthomcl-mysql -e MYSQL_ROOT_PASSWORD=asdf1234 -e MYSQL_USER=orthomcl_user -e MYSQL_PASSWORD=shhh_this_is_secret -e MYSQL_DATABASE=orthomcl -d mysql:5.7 | tee .ortho_mcl_db_container_id | head -n1
 
 # Only keep container id in temporary file
 echo `tail -n 1 .ortho_mcl_db_container_id` > .ortho_mcl_db_container_id
@@ -22,18 +22,18 @@ echo "Mounting local directory ${RUN_DIR} to $MNT within the OrthoMCL container"
 docker run -it --name orthomcl-run --link orthomcl-mysql:mysql -d -v ${RUN_DIR}:${MNT} granek/orthomcl 
 
 # Generate orthomcl config (env variables exist in container, output is written to file in host path)
-docker exec orthomcl-run echo """dbVendor=mysql
- dbConnectString=dbi:mysql:orthomcl:mysql_local_infile=1:$MYSQL_PORT_3306_TCP_ADDR:$MYSQL_PORT_3306_TCP_PORT
- dbLogin=orthomcl_user
- dbPassword=shhh_this_is_secret
- similarSequencesTable=SimilarSequences
- orthologTable=Ortholog
- inParalogTable=InParalog
- coOrthologTable=CoOrtholog
- interTaxonMatchView=InterTaxonMatch
- percentMatchCutoff=50
- evalueExponentCutoff=-5
- oracleIndexTblSpc=NONE""" > "$RUN_DIR/orthoMCL.config"
+docker exec orthomcl-run bash -c 'echo """dbVendor=mysql
+dbConnectString=dbi:mysql:orthomcl:mysql_local_infile=1:$MYSQL_PORT_3306_TCP_ADDR:$MYSQL_PORT_3306_TCP_PORT
+dbLogin=orthomcl_user
+dbPassword=shhh_this_is_secret
+similarSequencesTable=SimilarSequences
+orthologTable=Ortholog
+inParalogTable=InParalog
+coOrthologTable=CoOrtholog
+interTaxonMatchView=InterTaxonMatch
+percentMatchCutoff=50
+evalueExponentCutoff=-5
+oracleIndexTblSpc=NONE"""' > "$RUN_DIR/orthoMCL.config"
 
 # Run orthoMCL setup inside the container
 docker exec orthomcl-run orthomclInstallSchema $MNT/orthoMCL.config
