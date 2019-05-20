@@ -16,6 +16,7 @@ import numpy as np
 import pandas as pd
 from src import fasta_utils as fu
 from src import misc_utils as mu
+from src import interpro_utils as iu
 
 # Strains Neff and "old" of Acanthamoeba castellanii
 Acastellanii_strains = ["Neff", "C3"]
@@ -56,7 +57,7 @@ rule all:
     input: 
         expand(join(OUT, "blast", "{groups}.{amoeba}.txt"), 
                    groups=list(taxo_groups.keys()), amoeba=Acastellanii_strains),
-        join(OUT, 'orthoMCL', 'orthoMCL_all_groups.txt'),
+        join(OUT, 'orthoMCL', 'amoeba_groups.txt'),
         expand(join(TMP, "{group}_genomes_filtered.fa"), group=taxo_groups.keys()),
         expand(join(OUT, 'plots', '{amoeba}_annot_stats.pdf'), amoeba=["Neff", "NEFF_v1.43"])
 
@@ -71,7 +72,7 @@ rule amoeba_annot_stats:
 # 01 Download bacterial and viral genomes from interesting species
 rule fetch_genomes:
     input:  join(IN, 'misc', '{group}_names.tsv')
-    output: join(GENOMES, 'others', '{group}_euk_assoc.fa')
+    output: join(TMP, 'genomes', '{group}_euk_assoc.fa')
     run:
         num_ids = sum(1 for line in open(input[0], 'r'))
         with open(output[0], 'w') as out_fa, open(input[0], 'r') as in_id:
@@ -90,9 +91,8 @@ rule fetch_genomes:
 
 # 02 Download all protein sequences from bacterial and viral groups of interest
 rule fetch_annotations:
-    input:
-        join(IN, 'misc', '{group}_names.tsv'),
-    output: join(ANNOT, 'others', '{group}_annot.gff')
+    input: join(IN, 'misc', '{group}_names.tsv'),
+    output: join(TMP, 'annot', '{group}_annot.gff')
     run:
         num_ids = sum(1 for line in open(input[0], 'r'))
         with open(input[0], 'r') as in_id:
@@ -117,7 +117,7 @@ rule make_amoeba_blastn_db:
 # 04 Find viral/bacterial genomes which have hits in the amoeba
 rule blast_genomes_vs_amoeba:
     input:
-      query = join(GENOMES, 'others', '{group}_euk_assoc.fa'),
+      query = join(TMP, 'genomes', '{group}_euk_assoc.fa'),
       db_touch = join(TMP, '{amoeba}.blastdb')
     output: join(OUT, "blast", "{group}.{amoeba}.txt")
     threads: 4
@@ -139,8 +139,8 @@ rule blast_genomes_vs_amoeba:
 # 05 Filter annotations and genomes from hosts associated with amoeba
 rule filter_genomes:
     input:
-        genomes = join(GENOMES, 'others', '{group}_euk_assoc.fa'),
-        annot = join(ANNOT, "others", "{group}_annot.gff"),
+        genomes = join(TMP, 'genomes', '{group}_euk_assoc.fa'),
+        annot = join(TMP, "annot", "{group}_annot.gff"),
         select_id = expand(join(OUT, 'blast', '{group}.{amoeba}.txt'), group=taxo_groups.keys(), amoeba=Acastellanii_strains)
     output: 
         join(TMP, "{group}_genomes_filtered.fa"),
@@ -179,14 +179,12 @@ rule make_other_blastn_db:
     shell: "makeblastdb -in {input} -input_type fasta -dbtype nucl -out {params.db} && sleep 5"
 
             
-# 08 Adjust fasta headers of amoeba, virus and bacteria proteomes and combine all into a single fasta
+# 08 Adjust fasta headers of amoeba proteomes and combine all into a single fasta
 rule prepare_orthoMCL_proteins:
     input:
         join(ANNOT, 'amoeba', 'Neff_proteins.fa'),
-        join(TMP, "bacteria_prot_filtered.fa"), 
-        join(TMP, "virus_prot_filtered.fa")
     output:
-        join(OUT, 'orthoMCL', 'fasta', 'all_proteins_orthoMCL.fasta')
+        join(OUT, 'orthoMCL', 'fasta', 'amoeba_proteins_orthoMCL.fasta')
     run:
         with open(output[0], 'w') as mcl_fa:
             # All A. castellanii Neff headers prefixed with Acn|
@@ -194,23 +192,12 @@ rule prepare_orthoMCL_proteins:
                 neff_prot.id = "Acn|" + neff_prot.id
                 neff_prot.description = ""
                 SeqIO.write(neff_prot, mcl_fa, 'fasta')
-            # Replace bacteria and virus seq ID by 3-4 letters orthoMCL taxon ID
-            for in_file, tbl in zip([input[1], input[2]], [bact_df, vir_df]):
-                for prot in SeqIO.parse(in_file, 'fasta'):
-                    prot_info = str(prot.id).split('|')
-                    try:
-                        mcl_id = tbl.loc[tbl[0] == prot_info[0], 1].values[0]
-                    except IndexError:
-                        continue
-                    prot.id = mcl_id + "|" + prot_info[1]
-                    prot.description = ""
-                    SeqIO.write(prot, mcl_fa, 'fasta')
-
+       
 
 # 09 Pull and setup orthoMCL docker container, then run the ortholog group analysis
 rule orthoMCL:
-    input: join(OUT, 'orthoMCL', 'fasta', 'all_proteins_orthoMCL.fasta')
-    output: join(OUT, 'orthoMCL', 'orthoMCL_all_groups.txt')
+    input: join(OUT, 'orthoMCL', 'fasta', 'amoeba_proteins_orthoMCL.fasta')
+    output: join(OUT, 'orthoMCL', 'amoeba_groups.txt')
     threads: 12
     params:
         config = join('scripts', 'orthoMCL.config')
@@ -221,8 +208,57 @@ rule orthoMCL:
         bash scripts/orthoMCL_setup.sh {input} {threads} $outdir 
         """
 
+# 10: Filter amoeba proteins containing prokaryotic interpro domains
+rule interpro_filter:
+    input: join(ANNOT, 'amoeba', '{amoeba}_annotations.txt')
+    output: join(TMP, '{amoeba}_domain_groups.txt')
+    params:
+        euk = 2759,
+        bac = 2,
+        vir = 10239
+    run:
+        def sum_domains_hits(domains, taxid=None):
+            """
+            Wraps interpro_utils.get_domain_organisms to count hits in input
+            taxid over multiple interpro domains separated by a semicolon.
+            
+            Parameters
+            ----------
+            domain : str
+                InterPro domain to query, or multiple domains separated by ";".
+            taxid : int or str
+                Taxonomic group in which to count hits for the input domains.
+            
+            Returns
+            -------
+            int :
+                The cumulative number of hits for input domains in the given taxid
+            """
+            hits = 0
+            for domain in domains.split(";"):
+                hits += iu.get_domain_organisms(domain, taxid)
+            return hits
 
-# 06 Combine filtered genomes from all amoeba-host group combo and rm duplicates entries
+        prot_tbl = pd.read_csv(input[0], sep='\t', header=0)
+        # Count domain hits in eukaryotes, bacteria and viruses for each prot
+        groups = ["euk", "bac", "vir"]
+        for group in groups:
+            prot_tbl["n_%s" % group] = prot_tbl.InterPro.apply(
+                    lambda x: sum_domains_hits(x, params[group])
+                    )
+        n_cols = [x for x in prot_tbl.columns if x.startswith('n_')]
+        prot_tbl["n_all"] = prot_tbl.loc[:, n_cols].sum(axis=1)
+        
+        # Compute proportion of hits in each group
+        for group in groups:
+            prot_tbl["prop_%s" % group] = prot_tbl["n_%s" % group] / prot_tbl.n_all
+        
+        # Output newly generated columns to file
+        out_cols = n_cols + ["n_all"] + [x for x in prot_tbl.columns if x.startswith('prop_')]
+        prot_tbl.loc[:, out_cols].to_csv(output[0], sep='\t')
+
+### KEEP FOR LATER ###
+# 10 Combine filtered genomes from all amoeba-host group combo and rm duplicates entries
 rule merge_genomes:
     input:
         expand(
@@ -256,7 +292,7 @@ rule mcscanx_virus:
         """
 
 
-# Compares new Neff assembly with old one
+# Compares new Neff and C3 assemblies
 rule comp_amoeba:
     input:
     output:
