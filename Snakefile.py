@@ -62,7 +62,7 @@ rule all:
         join(OUT, 'orthoMCL', 'amoeba_groups.txt'),
         expand(join(TMP, "{group}_genomes_filtered.fa"), group=taxo_groups.keys()),
         expand(join(OUT, 'plots', '{amoeba}_annot_stats.pdf'), amoeba=["Neff", "NEFF_v1.43"]),
-        join(TMP, 'Neff_domain_groups.txt')
+        join(TMP, 'Neff_hog_taxon.txt')
 
 
 # 00 General annotations stats from amoeba GFF files
@@ -335,6 +335,30 @@ rule mcscanx_virus:
                                           -r {input.combined_genomes}
         """
 
+# For each candidate prokaryotic gene, retrieve the closest taxonomic group at
+# which the HOG is defined.
+rule closest_hog:
+    input:
+        prot = join(ANNOT, 'amoeba', '{amoeba}_proteins.fa'),
+        domains = join(TMP, '{amoeba}_domain_groups.txt')
+    output: join(TMP, '{amoeba}_hog_taxon.txt')
+    run:
+        dom = pd.read_csv(input['domains'], sep='\t')
+        dom['taxons'] = ""
+        prok_genes = dom.GeneID[dom.prop_bac > 0.8].tolist()
+        done_prok, tot_prok = 0, len(prok_genes)
+        for prot in SeqIO.parse(input['prot'], 'fasta'):
+            gene = prot.id.split("-")[0]
+            if gene in prok_genes:
+                print(prot.id)
+                orgs = ou.get_oma_hog(str(prot.seq))
+                try:
+                    dom.loc[dom.GeneID == gene, "taxons"] = orgs[0]
+                except IndexError:
+                    dom.loc[dom.GeneID == gene, 'taxons'] = None
+                done_prok += 1
+                mu.progbar(done_prok, tot_prok, "Fetching HOG taxons")
+        dom.to_csv(output[0], sep='\t', index=False)
 
 # Compares new Neff and C3 assemblies
 rule comp_amoeba:
