@@ -5,6 +5,7 @@ import time
 import requests
 import json
 from omadb import Client as Oma
+from omadb.OMARestAPI import ClientException
 
 
 def get_domain_organisms(domain, taxid=None):
@@ -60,17 +61,30 @@ def get_oma_hog(seq):
     
     Returns
     -------
-    str :
-        The finest taxonomic level at which the HOG of the best hit is defined.
+    list of str :
+        The list of taxonomic levels, from finest to largest, at which the HOG
+        of the best hit is defined.
     """
     o = Oma()
-    prots = o.proteins.search(seq)
-    # First target is the closest hit
-    targets = prots.targets
+    fail_countdown = 10
+    while fail_countdown > 0:
+        try:
+            prots = o.proteins.search(seq)
+            # First target is the closest hit
+            targets = prots.targets
+            fail_countdown = -1
+        except ClientException:
+            print("Request failed, %i tries left" % fail_countdown)
+            fail_countdown -= 1
+
+    # If request did not work after 10 tries
+    if fail_countdown == 0:
+        print("All 10 requests failed, giving up.")
+        targets = []
     if len(targets) == 0:
-        organism = None
+        organisms = [None]
     else:
         best_target = targets[0]
         # HOG taxonomic levels of the target go from finest to largest
-        organism = best_target.hog_levels[0]
-    return organism
+        organisms = best_target.hog_levels
+    return organisms

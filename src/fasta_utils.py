@@ -9,14 +9,14 @@ import time
 import re
 
 
-def safe_ncbi_request(fun):
+def safe_request(fun):
     """
-    Wraps function requesting data from ncbi to allow safe errors and retry.
+    Wraps function requesting data to allow safe errors and retry.
     
     Parameters
     ----------
     fun : python function
-        The python function that queries ncbi servers
+        The python function that queries a server
     
     Returns
     -------
@@ -32,7 +32,7 @@ def safe_ncbi_request(fun):
             a = fun(*args, **kwargs)
             return a
         except urllib.error.HTTPError as e:
-            if e.code == 429:
+            if e.code in (429, 502):
                 time.sleep(5)
                 print("Sending too many requests, sleeping 5sec and retrying...")
                 fun(*args, **kwargs)
@@ -68,7 +68,7 @@ def retrieve_refseq_ids(in_ids, db, out_fa):
     print("%d genomes found among the %d queries." % (len(found), len(query_ids)))
 
 
-@safe_ncbi_request
+@safe_request
 def fetch_fasta(seq_id, db="nucleotide", email="someone@email.com"):
     """
     Downloads a genome corresponding to input sequence ID.
@@ -95,7 +95,7 @@ def fetch_fasta(seq_id, db="nucleotide", email="someone@email.com"):
     return seq_record
 
 
-@safe_ncbi_request
+@safe_request
 def name_to_proteins(name, db="protein", email="someone@email.com"):
     """
     Given an organism name, fetch all available protein sequences.
@@ -126,7 +126,7 @@ def name_to_proteins(name, db="protein", email="someone@email.com"):
     return seqs
 
 
-@safe_ncbi_request
+@safe_request
 def retrieve_id_annot(id, out_gff, mode="w", email="someone@email.com"):
     """
     Queries genbank record for an input ID and retrieves the genome annotations
