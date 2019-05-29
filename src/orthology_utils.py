@@ -5,7 +5,7 @@ import time
 import requests
 import json
 from omadb import Client as Oma
-from omadb.OMARestAPI import ClientException
+from omadb.OMARestAPI import ClientException, ClientTimeout
 
 
 def get_domain_organisms(domain, taxid=None):
@@ -73,7 +73,7 @@ def get_oma_hog(seq):
             # First target is the closest hit
             targets = prots.targets
             fail_countdown = -1
-        except ClientException:
+        except (ClientException, ClientTimeout):
             print("Request failed, %i tries left" % fail_countdown)
             fail_countdown -= 1
 
