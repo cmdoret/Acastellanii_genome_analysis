@@ -62,7 +62,8 @@ rule all:
         join(OUT, 'orthoMCL', 'amoeba_groups.txt'),
         expand(join(TMP, "{group}_genomes_filtered.fa"), group=taxo_groups.keys()),
         expand(join(OUT, 'plots', '{amoeba}_annot_stats.pdf'), amoeba=["Neff", "NEFF_v1.43"]),
-        join(TMP, 'Neff_hog_taxon.txt')
+        join(TMP, 'Neff_hog_taxon.txt'),
+        expand(join(OUT, '{amoeba}_sighunt.bed'), amoeba=Acastellanii_strains)
 
 
 # 00 General annotations stats from amoeba GFF files
@@ -70,6 +71,12 @@ rule amoeba_annot_stats:
     input: join(ANNOT, 'amoeba', '{amoeba}.gff')
     output: join(OUT, 'plots', '{amoeba}_annot_stats.pdf')
     shell: "Rscript scripts/annot_stats.R {input} {output}"
+
+# 00b Scan amoeba genomes to identify regions of different 4-mer signatures
+rule sighunt_scan:
+    input: join(GENOMES, 'amoeba', '{amoeba}.fa')
+    output: join(OUT, '{amoeba}_sighunt.bed')
+    shell: "Rscript scripts/sighunt_analysis.R {input} {output}"
 
 
 # 01 Download bacterial and viral genomes from interesting species
@@ -344,21 +351,25 @@ rule closest_hog:
     output: join(TMP, '{amoeba}_hog_taxon.txt')
     run:
         dom = pd.read_csv(input['domains'], sep='\t')
-        dom['taxons'] = ""
-        prok_genes = dom.GeneID[dom.prop_bac > 0.8].tolist()
+        dom['finest_taxon'] = ""
+        dom['largest_taxon'] = ""
+        dom = dom.loc[dom.prop_bac > 0.8, :]
+        prok_genes = dom.GeneID.tolist()
         done_prok, tot_prok = 0, len(prok_genes)
         for prot in SeqIO.parse(input['prot'], 'fasta'):
             gene = prot.id.split("-")[0]
             if gene in prok_genes:
-                print(prot.id)
                 orgs = ou.get_oma_hog(str(prot.seq))
                 try:
-                    dom.loc[dom.GeneID == gene, "taxons"] = orgs[0]
+                    dom.loc[dom.GeneID == gene, "finest_taxon"] = orgs[0]
+                    dom.loc[dom.GeneID == gene, 'largest_taxon'] = orgs[-1]
                 except IndexError:
-                    dom.loc[dom.GeneID == gene, 'taxons'] = None
+                    dom.loc[dom.GeneID == gene, 'finest_taxon'] = None
+                    dom.loc[dom.GeneID == gene, 'largest_taxon'] = None
                 done_prok += 1
                 mu.progbar(done_prok, tot_prok, "Fetching HOG taxons")
         dom.to_csv(output[0], sep='\t', index=False)
+
 
 # Compares new Neff and C3 assemblies
 rule comp_amoeba:
