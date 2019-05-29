@@ -12,8 +12,11 @@ Requirements:
     + BCBio
     + numpy
     + pandas
+    + pyomadb
+    + requests
 * R 3.5.x
     + tidyverse
     + GenomicRanges
     + ggbio
     + gridExtra
+    + [sighunt](https://github.com/KamilSJaron/sighunt)
