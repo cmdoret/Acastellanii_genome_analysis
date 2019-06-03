@@ -56,15 +56,15 @@ bact_df = pd.read_csv(join(IN, 'misc', 'bacteria_names.tsv'), sep='\t', header=N
 # ===========================
 
 rule all:
-    input: 
+    input:
         expand(join(OUT, "blast", "{groups}.{amoeba}.txt"), 
                    groups=list(taxo_groups.keys()), amoeba=Acastellanii_strains),
         join(OUT, 'orthoMCL', 'amoeba_groups.txt'),
-        expand(join(TMP, "{group}_genomes_filtered.fa"), group=taxo_groups.keys()),
+        #expand(join(TMP, "{group}_genomes_filtered.fa"), group=taxo_groups.keys()),
         expand(join(OUT, 'plots', '{amoeba}_annot_stats.pdf'), amoeba=["Neff", "NEFF_v1.43"]),
         join(TMP, 'Neff_hog_taxon.txt'),
-        expand(join(OUT, '{amoeba}_sighunt.bed'), amoeba=Acastellanii_strains)
-
+        expand(join(OUT, '{amoeba}_sighunt.bed'), amoeba=Acastellanii_strains),
+        join(OUT, "MCScanX", "MCScanX.done")
 
 # 00 General annotations stats from amoeba GFF files
 rule amoeba_annot_stats:
@@ -196,7 +196,7 @@ rule prepare_orthoMCL_proteins:
     output:
         join(OUT, 'orthoMCL', 'fasta', '{amoeba}.fasta')
     run:
-        taxon  = abbr["{wildcards.amoeba}"]
+        taxon = abbr["{wildcards.amoeba}"]
         with open(output[0], 'w') as mcl_fa:
             # All A. castellanii Neff headers prefixed with Acn|
             for prot in SeqIO.parse(input[0], 'fasta'):
@@ -326,12 +326,11 @@ rule interpro_filter:
         prot_tbl.loc[:, out_cols].to_csv(output[0], sep='\t', index=False)
 
 
-
 # 06 Get collinearity blocks between amoeba and viruses or bacteria
-rule mcscanx_virus:
+rule mcscanx_amoeba:
     input:
-        combined_genomes = join(OUT, "MCScanX", "MCScanX_genomes_{group}.fa"),
-        combined_annot = join(OUT, "MSCanX", "MCScanX_annot_{group},gff")
+        combined_genomes = join(GENOMES, "amoeba", "Neff.fa"),
+        combined_annot = join(ANNOT, "amoeba", "Neff.gff")
     output: touch(join(OUT, "MCScanX", "MCScanX.done"))
     params:
         out_dir = join(OUT, "MCScanX")
