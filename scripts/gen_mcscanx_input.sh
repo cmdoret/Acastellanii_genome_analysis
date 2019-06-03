@@ -9,7 +9,7 @@
 # Help message
 function usage () {
    cat <<EOF
-Usage: `basename $0` -g genes -o output_folder -r ref [-p prev_ref] [-c corresp] [-l] [-h]
+Usage: `basename $0` -g genes -o output_folder -r ref [-h]
    -g   gtf file with genes coordinates
    -o   output folder for MCScanX files
    -r   reference genome
@@ -21,8 +21,9 @@ EOF
 
 
 # Parsing CL arguments
-while getopts ":g:o:r:p:c:lh" opt; do
+while getopts ":g:o:r:h" opt; do
    case $opt in
+   g )  GFF=${OPTARG} ;;
    o )  OUT_F=${OPTARG} ;;
    r )  REF=${OPTARG};;
    h )  usage ;;
