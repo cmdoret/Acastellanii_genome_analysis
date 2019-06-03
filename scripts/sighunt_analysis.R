@@ -12,10 +12,10 @@ genome <- args[1]
 out_candidates <- args[2]
 
 # function that executes the sighunt analysis on one contig
-get_candidate <- function(sequence){
-  # Only including contigs larger than 10kb
-  if(nchar(sequence) > 10000){
-    signature <- get_signature(sequence, window = 5000, step = 1000)
+get_candidate <- function(sequence, win=5000, step=5000){
+  # Only including contigs larger than two windows
+  if(nchar(sequence) > 2*win){
+    signature <- get_signature(sequence, window = win, step = step)
     dias <- global_density(signature)
   }
   else{
