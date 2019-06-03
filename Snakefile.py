@@ -49,6 +49,7 @@ TMP = join(DATA, 'tmp')
 GENOMES = join(IN, 'genomes')
 ANNOT = join(IN, 'annotations')
 DB = join(IN, 'db')
+CIRCOS = join(IN, 'misc', 'circos_conf')
 
 vir_df = pd.read_csv(join(IN, 'misc', 'virus_names.tsv'), sep='\t', header=None)
 bact_df = pd.read_csv(join(IN, 'misc', 'bacteria_names.tsv'), sep='\t', header=None)
@@ -64,7 +65,8 @@ rule all:
         expand(join(OUT, 'plots', '{amoeba}_annot_stats.pdf'), amoeba=["Neff", "NEFF_v1.43"]),
         join(TMP, 'Neff_hog_taxon.txt'),
         expand(join(OUT, '{amoeba}_sighunt.bed'), amoeba=Acastellanii_strains),
-        join(OUT, "MCScanX", "MCScanX.done")
+        join(OUT, "MCScanX", "MCScanX.done"),
+        expand(join(OUT, 'plots', 'circos_{amoeba}.svg'), amoeba="Neff")
 
 # 00 General annotations stats from amoeba GFF files
 rule amoeba_annot_stats:
@@ -250,7 +252,8 @@ rule interpro_filter:
     params:
         euk = 2759,
         bac = 2,
-        vir = 10239
+        vir = 10239,
+        min_hits = 10
     run:
 
         
@@ -323,7 +326,7 @@ rule interpro_filter:
         # Output newly generated columns to file
         out_cols = ["GeneID", "Contig", "Start", "Stop"] + n_cols + ["n_all"] + \
                    [x for x in prot_tbl.columns if x.startswith('prop_')]
-        prot_tbl.loc[:, out_cols].to_csv(output[0], sep='\t', index=False)
+        prot_tbl.loc[prot_tbl.n_all > params['min_hits'], out_cols].to_csv(output[0], sep='\t', index=False)
 
 
 # 06 Get collinearity blocks between amoeba and viruses or bacteria
@@ -369,9 +372,25 @@ rule closest_hog:
                 mu.progbar(done_prok, tot_prok, "Fetching HOG taxons")
         dom.to_csv(output[0], sep='\t', index=False)
 
-
-# Compares new Neff and C3 assemblies
-rule comp_amoeba:
+rule call_hgt_candidates:
     input:
+        sighunt = join(OUT, '{amoeba}_sighunt.bed'),
+        interpro = join(TMP, '{amoeba}_domain_groups.txt')
+    output: join(OUT, '{amoeba}_HGT_candidates.txt')
+    shell: "Rscript scripts/call_hgt.R {input.sighunt} {input.interpro} {output}"
+
+
+# Generate circos plot and required inputs
+rule circos:
+    input:
+        ref = join(GENOMES, 'amoeba', '{amoeba}.fa'),
+        sighunt = join(OUT, '{amoeba}_sighunt.bed'),
+        interpro = join(TMP, '{amoeba}_domain_groups.txt'),
+        candidates = join(OUT, '{amoeba}_HGT_candidates.txt')
     output:
-    shell: "quast "
+        karyotype = join(OUT, 'plots', 'circos_{amoeba}.svg')
+    shell: 
+        """
+        bash scripts/gen_circos_files.sh {input.ref} {input.sighunt} {input.interpro} {input.candidates}
+        circos -conf {CIRCOS}/circos.conf -outputfile {output}
+        """
