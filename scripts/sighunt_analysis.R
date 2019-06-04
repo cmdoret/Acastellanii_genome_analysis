@@ -12,7 +12,7 @@ genome <- args[1]
 out_candidates <- args[2]
 
 # function that executes the sighunt analysis on one contig
-get_candidate <- function(sequence, win=5000, step=5000){
+get_candidate <- function(sequence, win=5000, step=1000){
   # Only including contigs larger than two windows
   if(nchar(sequence) > 2*win){
     signature <- get_signature(sequence, window = win, step = step)
@@ -38,5 +38,11 @@ cand_tbl <- tibble(name=names(candidates), dias=candidates) %>%
            end  =map_int(pos, function(x) as.integer(x[3]))) %>%
     select(chrom, start, end, dias, -pos, -name)
 
-write_tsv(cand_tbl, out_candidates, col_names=T)
+# Aggregate windows in 50kb bins
+agg_tbl <- cand_tbl %>%
+  group_by(chrom, window=round(start / 50000)) %>%
+  summarise(start=min(start), end=max(end), agg_dias = mean(dias)) %>%
+  select(chrom, start, end, agg_dias)
 
+write_tsv(cand_tbl, out_candidates, col_names=T)
+write_tsv(agg_tbl, paste0(out_candidates, ".agg"), col_names=T)

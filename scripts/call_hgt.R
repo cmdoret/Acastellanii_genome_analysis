@@ -12,14 +12,23 @@ interpro <- read_tsv(args[2]) %>%
 
 # Overlap candidates genes (85% of hits in prokaryotes) with sighunt 
 # windows in top 5% highest DIAS
-dias_cutoff <- unname(quantile(sighunt$dias, 0.95))
+dias_cutoff <- unname(quantile(sighunt$dias, 0.90))
 sighunt_ranges <- makeGRangesFromDataFrame(sighunt %>% filter(dias >= dias_cutoff))
-interpro_ranges <- makeGRangesFromDataFrame(interpro %>% filter(prop_bac >= 0.85))
-overlaps <- GenomicRanges::findOverlaps(interpro_ranges, sighunt_ranges)
+interpro_ranges <- makeGRangesFromDataFrame(interpro %>% filter(prop_bac >= 0.85),
+                                            keep.extra.columns=T)
+overlaps <- subsetByOverlaps(interpro_ranges, sighunt_ranges)
 
-candidates <- interpro[queryHits(overlaps), ] %>% 
-    distinct(GeneID, chrom, Start, Stop, GeneID) %>% 
-    arrange(chrom, Start) %>%
-    select(chrom, Start, Stop, GeneID)
+# Extract positional data from Granges into a dataframe
+candidates <- data.frame(chrom=seqnames(overlaps),
+  start=start(overlaps)-1,
+  stop=end(overlaps))
+
+# Add metadata (incl gene ID), sort genes and order columns
+candidates <- candidates %>%
+    cbind(mcols(overlaps)) %>%
+    as_tibble %>%
+    distinct(GeneID, chrom, start, stop) %>%
+    arrange(chrom, start) %>%
+    select(chrom, start, stop, GeneID)
 
 write_tsv(candidates, args[3])
