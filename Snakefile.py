@@ -1,8 +1,8 @@
 # Genome analysis of Acanthamoeba castellanii Neff and "old" strains. Includes
-# * Viral and bacterial gene content
+# * HGT analysis
 # * Synteny analysis
 # * Gene annotation stats
-# * comparative analysis between both strains
+# * comparative analysis between both strains (TODO)
 # Input amobea genomes assembled using long reads, shotgun Illumina and Hi-C
 
 # cmdoret, 20190410
@@ -68,181 +68,22 @@ rule all:
         join(OUT, "MCScanX", "MCScanX.done"),
         expand(join(OUT, 'plots', 'circos_{amoeba}.svg'), amoeba="Neff")
 
+include: 'workflows/downloaders.smk'
+include: 'workflows/orthomcl.smk'
+
 # 00 General annotations stats from amoeba GFF files
 rule amoeba_annot_stats:
     input: join(ANNOT, 'amoeba', '{amoeba}.gff')
     output: join(OUT, 'plots', '{amoeba}_annot_stats.pdf')
     shell: "Rscript scripts/annot_stats.R {input} {output}"
 
-# 00b Scan amoeba genomes to identify regions of different 4-mer signatures
+# 01 Scan amoeba genomes to identify regions of different 4-mer signatures
 rule sighunt_scan:
     input: join(GENOMES, 'amoeba', '{amoeba}.fa')
-    output: join(OUT, '{amoeba}_sighunt.bed')
-    shell: "Rscript scripts/sighunt_analysis.R {input} {output}"
-
-
-# 01 Download bacterial and viral genomes from interesting species
-rule fetch_genomes:
-    input:  join(IN, 'misc', '{group}_names.tsv')
-    output: join(TMP, 'genomes', '{group}_euk_assoc.fa')
-    run:
-        num_ids = sum(1 for line in open(input[0], 'r'))
-        with open(output[0], 'w') as out_fa, open(input[0], 'r') as in_id:
-            id_number = 0
-            for organism in in_id:
-                seq_id = organism.split("\t")[0]
-                mu.progbar(id_number, num_ids, "Downloading %s genomes      " % wildcards['group'])
-                time.sleep(0.1) # Do not spam NCBI :)
-                genome = fu.fetch_fasta(seq_id, email=email)
-                try:
-                    SeqIO.write(genome, out_fa, 'fasta')
-                    id_number += 1
-                except TypeError:
-                    pass
-
-
-# 02 Download all protein sequences from bacterial and viral groups of interest
-rule fetch_annotations:
-    input: join(IN, 'misc', '{group}_names.tsv'),
-    output: join(TMP, 'annot', '{group}_annot.gff')
-    run:
-        num_ids = sum(1 for line in open(input[0], 'r'))
-        with open(input[0], 'r') as in_id:
-            id_number = 0
-            for organism in in_id:
-                seq_id = organism.split('\t')[0]
-                mu.progbar(id_number, num_ids, "Downloading %s annotations     " % wildcards['group'])
-                time.sleep(1)
-                fu.retrieve_id_annot(seq_id, output[0], mode='a', email=email)
-                id_number += 1
-
-
-# 03 Make a nucleotide blast database of amoeba
-rule make_amoeba_blastn_db:
-    input: join(GENOMES, "amoeba", "{amoeba}.fa")
-    output: touch(join(TMP, '{amoeba}.blastdb'))
-    params:
-        db = join(DB, 'blast', '{amoeba}.blastdb')
-    shell: "makeblastdb -in {input} -input_type fasta -dbtype nucl -out {params.db} && sleep 5"
-
-
-# 04 Find viral/bacterial genomes which have hits in the amoeba
-rule blast_genomes_vs_amoeba:
-    input:
-      query = join(TMP, 'genomes', '{group}_euk_assoc.fa'),
-      db_touch = join(TMP, '{amoeba}.blastdb')
-    output: join(OUT, "blast", "{group}.{amoeba}.txt")
-    threads: 4
-    params:
-        db = join(DB, 'blast', '{amoeba}.blastdb'),
-        of="6",
-        e_val="1e-11"
-    shell:
-        """
-        blastn -num_threads {threads} \
-               -db {params.db} \
-               -query {input.query} \
-               -evalue {params.e_val} \
-               -outfmt {params.of} \
-               -out {output}
-        """
-
-
-# 05 Filter annotations and genomes from hosts associated with amoeba
-rule filter_genomes:
-    input:
-        genomes = join(TMP, 'genomes', '{group}_euk_assoc.fa'),
-        annot = join(TMP, "annot", "{group}_annot.gff"),
-        select_id = expand(join(OUT, 'blast', '{group}.{amoeba}.txt'), group=taxo_groups.keys(), amoeba=Acastellanii_strains)
-    output: 
-        join(TMP, "{group}_genomes_filtered.fa"),
-        join(TMP, "{group}_annot_filtered.gff")
-    run:
-        # Get unique virus / bact IDs that blasted agains amoeba genomes
-        load_ids = lambda x: np.loadtxt(x, usecols=(0,), delimiter='\t', dtype=str)
-        ids = [load_ids(arr) for arr in input['select_id'] if re.search(wildcards["group"], arr)]
-        ids = np.concatenate(ids)
-        ids = set(ids)
-        # Write fasta with only genomes of those organisms
-        with open(output[0], 'w') as out_fa:
-            for rec in SeqIO.parse(input['genomes'], 'fasta'):
-                if rec.id in ids:
-                    SeqIO.write(rec, out_fa, 'fasta')
-
-        with open(input['annot'], 'r') as in_gff, open(output[1], 'w') as out_gff:
-            for record in in_gff:
-                if record.split('\t')[0] in ids:
-                    out_gff.write(record)
-
-# 06 Extract protein sequence from bact / vir GFF
-rule extract_prot_seq:
-    input: join(TMP, "{group}_annot_filtered.gff")
-    output: join(TMP, "{group}_prot_filtered.fa")
-    run:
-        fu.gff_seq_extract(input[0], output[0])
-
-
-# 07 Make blastn db for filtered bact/virus genomes
-rule make_other_blastn_db:
-    input: join(TMP, "{group}_genomes_filtered.fa")
-    output: touch(join(TMP, '{group}.blastdb'))
-    params:
-        db = join(DB, 'blast', '{group}.blastdb')
-    shell: "makeblastdb -in {input} -input_type fasta -dbtype nucl -out {params.db} && sleep 5"
-
-            
-# 08 Adjust fasta headers of amoeba proteomes for orthoMCL
-rule prepare_orthoMCL_proteins:
-    input:
-        join(ANNOT, 'amoeba', '{amoeba}_proteins.fa')
     output:
-        join(OUT, 'orthoMCL', 'fasta', '{amoeba}.fasta')
-    run:
-        taxon = abbr["{wildcards.amoeba}"]
-        with open(output[0], 'w') as mcl_fa:
-            # All A. castellanii Neff headers prefixed with Acn|
-            for prot in SeqIO.parse(input[0], 'fasta'):
-                prot.id = taxon + "|" + prot.id
-                prot.description = ""
-                SeqIO.write(prot, mcl_fa, 'fasta')
-
-# 09: Generate bed files corresponding to the orthoMCL fasta to use them in MCScanX
-rule gen_orthoMCL_bed:
-    input:
-        join(ANNOT, 'amoeba', '{amoeba}_annotations.txt')
-    output:
-        join(OUT, 'orthoMCL', 'bed', '{amoeba}.bed')
-    run:
-        taxon = abbr["{wildcards.amoeba}"]
-        with open(input[0]) as in_gff, open(output[0], 'w') as mcl_bed:
-            for prot in in_gff:
-                fields = prot.split('\t')
-                bed_fields = {
-                    'chr': fields[2], 
-                    'start': fields[3], 
-                    'end': fields[4], 
-                    'id': taxon + "|" + fields[0]
-                }
-                mdl_bed.writeline("{chr}\t{start}\t{end}\t{id}".format(**bed_fields))
-                
-
-# 10 Pull and setup orthoMCL docker container, then run the ortholog group analysis
-rule orthoMCL:
-    input: expand(join(OUT, 'orthoMCL', 'fasta', '{amoeba}.fasta'), amoeba=Acastellanii_strains)
-    output: 
-        groups = join(OUT, 'orthoMCL', 'amoeba_groups.txt'),
-        fasta = join(OUT, 'orthoMCL', 'amoeba_proteins_orthoMCL.fasta')
-    threads: 12
-    params:
-        config = join('scripts', 'orthoMCL.config'),
-        
-    run:
-        """
-        cat {input} > {output.fasta}
-        outdir=$PWD/$(dirname {output.groups})
-        cp {params.config} $outdir
-        bash scripts/orthoMCL_setup.sh {params.fasta} {threads} $outdir 
-        """
+      sig = join(OUT, '{amoeba}_sighunt.bed'),
+      agg = join(OUT, '{amoeba}_sighunt.bed.agg')
+    shell: "Rscript scripts/sighunt_analysis.R {input} {output.sig}"
 
 
 # 10: Filter amoeba proteins containing prokaryotic interpro domains
@@ -252,8 +93,7 @@ rule interpro_filter:
     params:
         euk = 2759,
         bac = 2,
-        vir = 10239,
-        min_hits = 10
+        vir = 10239
     run:
 
         
@@ -326,25 +166,28 @@ rule interpro_filter:
         # Output newly generated columns to file
         out_cols = ["GeneID", "Contig", "Start", "Stop"] + n_cols + ["n_all"] + \
                    [x for x in prot_tbl.columns if x.startswith('prop_')]
-        prot_tbl.loc[prot_tbl.n_all > params['min_hits'], out_cols].to_csv(output[0], sep='\t', index=False)
+        prot_tbl.loc[:, out_cols].to_csv(output[0], sep='\t', index=False)
 
 
 # 06 Get collinearity blocks between amoeba and viruses or bacteria
 rule mcscanx_amoeba:
     input:
-        combined_genomes = join(GENOMES, "amoeba", "Neff.fa"),
-        combined_annot = join(ANNOT, "amoeba", "Neff.gff")
+        prot = join(ANNOT, "amoeba", "Neff_proteins.fa"),
+        annot = join(ANNOT, "amoeba", "Neff.gff")
     output: touch(join(OUT, "MCScanX", "MCScanX.done"))
+    threads: 12
     params:
         out_dir = join(OUT, "MCScanX")
     shell:
         """
-        bash scripts/gen_mcscanx_input.sh -g {input.combined_annot} \
+        bash scripts/gen_mcscanx_input.sh -g {input.annot} \
                                           -o {params.out_dir} \
-                                          -r {input.combined_genomes}
+                                          -f {input.prot} \
+                                          -c {threads}
+        MCScanX -s 3 {params.out_dir}/MCScanX_in
         """
 
-# For each candidate prokaryotic gene, retrieve the closest taxonomic group at
+# 07 For each candidate prokaryotic gene, retrieve the closest taxonomic group at
 # which the HOG is defined.
 rule closest_hog:
     input:
@@ -372,6 +215,7 @@ rule closest_hog:
                 mu.progbar(done_prok, tot_prok, "Fetching HOG taxons")
         dom.to_csv(output[0], sep='\t', index=False)
 
+
 rule call_hgt_candidates:
     input:
         sighunt = join(OUT, '{amoeba}_sighunt.bed'),
@@ -380,17 +224,43 @@ rule call_hgt_candidates:
     shell: "Rscript scripts/call_hgt.R {input.sighunt} {input.interpro} {output}"
 
 
-# Generate circos plot and required inputs
+
+# 08 Compute proportion of prokaryotic genes along genomic bins for visualisation
+rule bin_interpro_genes:
+    input: join(TMP, '{amoeba}_domain_groups.txt')
+    output: join(OUT, '{amoeba}_interpro_bac_hist.txt')
+    params:
+        bin_size = 100000,
+        threshold = 0.85
+    run:
+        mu.bin_tsv_file(
+            input[0],
+            output[0],
+            params["bin_size"], 
+            chrom=1, 
+            start=2, 
+            end=3, 
+            val=9, 
+            fun=lambda x: len(x[(x>params['threshold']) & (~np.isnan(x))]) / 
+                          max(1, len(x[~np.isnan(x)]))
+        )
+
+# 09 Generate circos plot and required inputs
 rule circos:
     input:
         ref = join(GENOMES, 'amoeba', '{amoeba}.fa'),
-        sighunt = join(OUT, '{amoeba}_sighunt.bed'),
-        interpro = join(TMP, '{amoeba}_domain_groups.txt'),
-        candidates = join(OUT, '{amoeba}_HGT_candidates.txt')
+        sighunt = join(OUT, '{amoeba}_sighunt.bed.agg'),
+        interpro = join(OUT, '{amoeba}_interpro_bac_hist.txt'),
+        candidates = join(OUT, '{amoeba}_HGT_candidates.txt'),
+        mcscx_flag = join(OUT, 'MCScanX', 'MCScanX.done')
     output:
         karyotype = join(OUT, 'plots', 'circos_{amoeba}.svg')
-    shell: 
+    params:
+        mcsx_prefix = join(OUT, 'MCScanX', 'MCScanX_in')
+    shell:
         """
-        bash scripts/gen_circos_files.sh {input.ref} {input.sighunt} {input.interpro} {input.candidates}
+        bash scripts/gen_circos_files.sh {input.ref} {input.sighunt} \
+                                         {input.interpro} {input.candidates} \
+                                         {params.mcsx_prefix}
         circos -conf {CIRCOS}/circos.conf -outputfile {output}
         """
