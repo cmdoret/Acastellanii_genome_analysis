@@ -12,27 +12,28 @@ function usage () {
 Usage: `basename $0` -g genes -o output_folder -r ref [-h]
    -g   gtf file with genes coordinates
    -o   output folder for MCScanX files
-   -r   reference genome
+   -f   reference genome
+   -c   number of cpus to use for BLAST
    -h   displays this help
 EOF
    exit 0
 }
 
 
-
+N_CPU=1
 # Parsing CL arguments
-while getopts ":g:o:r:h" opt; do
+while getopts ":g:o:f:c:h" opt; do
    case $opt in
    g )  GFF=${OPTARG} ;;
    o )  OUT_F=${OPTARG} ;;
-   r )  REF=${OPTARG};;
+   f )  FASTA=${OPTARG};;
+   c )  N_CPU=${OPTARG} ;;
    h )  usage ;;
    \?)  usage ;;
    esac
 done
-
 # Testing if mandatory arguments have been provided
-if [ "x" == "x$REF" ] || [ "x" == "x$GFF" ] || \
+if [ "x" == "x$FASTA" ] || [ "x" == "x$GFF" ] || \
    [ "x" == "x$OUT_F" ];
 then
   echo "Error: A reference genome, input GFF file and output folder \
@@ -42,54 +43,39 @@ then
 fi
 
 
-#1: Extract records for features of interest from gff file
-echo -n "Extracting genes coordinates from the gff file..."
+#1: format GFF file for MCScanX, only keeping CDS
+echo "Formatting GFF..."
 OUT_GFF="$OUT_F/MCScanX_genes.gff"
-awk '$3 ~ "gene" {print $0}' "$GFF" > "$OUT_GFF"
-echo "genes extracted !"
-
-
-#2: convert GFF to BED format and extract sequence
-# bed format: chrom start end id 0 strand
-echo "Converting GFF to BED."
-OUT_BED="${OUT_GFF%.*}.bed"
 awk 'BEGIN{OFS="\t"}
-     {id_match=match($9,/ID=[^;]*/)
+     $3 ~ "CDS" {id_match=match($9,/ID=[^;]*/)
       id=substr($9,RSTART+3,RLENGTH-3)
-      print $1,$4,$5,id,0,$7}' $OUT_GFF > $OUT_BED
+      print $1,id,$4,$5}' $GFF > $OUT_GFF
+echo "GFF formatted !"
 
-awk 'BEGIN{OFS="\t"}{print $1,$4,$2,$3}' "$OUT_BED" > "$OUT_GFF"
-OUT_SEQ="$OUT_BED.fasta"
-
-
-echo "Extracting gene sequences from reference genome"
-bedtools getfasta -fi $REF -bed $OUT_BED -fo $OUT_SEQ -name
-
-#4: build blast database from sequences and all vs all blast
-makeblastdb -in $OUT_SEQ -dbtype nucl
+#2: build blast database from sequences and all vs all blast
+BASE_OUT=$(basename $FASTA)
+BASE_OUT=${BASE_OUT%%.*}
+makeblastdb -in $FASTA -dbtype prot -out "${OUT_F}/${BASE_OUT}"
 
 echo "Blasting transcriptome against itself."
-blastn -query $OUT_SEQ \
-       -db $OUT_SEQ \
+blastp -query $FASTA \
+       -db "${OUT_F}/${BASE_OUT}" \
        -outfmt 6 \
        -max_target_seqs 5 \
-       -out $OUT_SEQ.blast
+       -num_threads $N_CPU \
+       -out "${OUT_F}/${BASE_OUT}.blast"
 
-# Renaming chromosomes according to MCScanX conventions
+#3 Renaming chromosomes according to MCScanX conventions
 MC_IN="$OUT_F/MCScanX_in"
-sed 's/^chr\([0-9]*\)/lf\1/' "$OUT_GFF" > "$MC_IN.gff"
-sed 's/chr\([0-9]*\)/lf\1/g' "$OUT_SEQ.blast" \
-    | sed 's/::[^	]*//g' > "$MC_IN.blast"
+# Use two first characters of fasta file as organism abbreviation
+#SP_CODE=${BASE_OUT:0:2}
+#sed "s/^scaffold_\([0-9]*\)/$SP_CODE\1/g" | 
+sed 's/\.cds//g' "$OUT_GFF" > "$MC_IN.gff"
+#sed "s/scaffold_\([0-9]*\)/$SP_CODE\1/g" | 
+sed 's/::[^	]*//g' "${OUT_F}/${BASE_OUT}.blast" > "$MC_IN.blast"
 
 
 echo "All input files are ready:"
 echo "  - BLAST output: $MC_IN.blast"
 echo "  - GFF file: $MC_IN.gff"
 
-echo "Running MCScanX"
-MCScanX -s 3 $MC_IN
-
-echo "Generating graphics control file for circle plotter"
-# 800 pixels, displaying all chromosomes in the input GFF file
-echo "1920" > $OUT_F/circle.ctl
-cut -f1 "$MC_IN.gff" | uniq | paste -s -d, - >> $OUT_F/circle.ctl
