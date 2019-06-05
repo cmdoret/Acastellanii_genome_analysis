@@ -7,9 +7,9 @@ library(topGO)
 # Parse CL args
 args <- commandArgs(trailingOnly=T)
 
-annot_tbl <- rea
-candidates <-
-out <-
+annot_tbl <- read_tsv(args[1])
+candidates <- read_tsv(args[2])
+out <- args[3]
 
 # Input format is:
 # 133103  GO:0015031, GO:0005794, GO:0016020, GO:0017119, GO:0000139
@@ -18,7 +18,6 @@ out <-
 # 160828  GO:0005488
 # 105778  GO:0016021, GO:0016020
 # 166881  GO:0003674, GO:0016021, GO:0016020, GO:0008150
-
 
 geneID2GO <- readMappings(map_file)
 
@@ -30,3 +29,4 @@ sampleGOdata <- new("topGOdata",
                     nodeSize = 10,
                     annot = annFUN.db,
                     affyLib = affyLib)
+
