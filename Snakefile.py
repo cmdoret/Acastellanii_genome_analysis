@@ -66,7 +66,8 @@ rule all:
         join(TMP, 'Neff_hog_taxon.txt'),
         expand(join(OUT, '{amoeba}_sighunt.bed'), amoeba=Acastellanii_strains),
         join(OUT, "MCScanX", "MCScanX.done"),
-        expand(join(OUT, 'plots', 'circos_{amoeba}.svg'), amoeba="Neff")
+        expand(join(OUT, 'plots', 'circos_{amoeba}.svg'), amoeba="Neff"),
+        expand(join(OUT, 'go_enrich', '{amoeba}_enrich.txt'), amoeba="Neff")
 
 include: 'workflows/downloaders.smk'
 include: 'workflows/orthomcl.smk'
@@ -264,3 +265,11 @@ rule circos:
                                          {params.mcsx_prefix}
         circos -conf {CIRCOS}/circos.conf -outputfile {output}
         """
+
+# 10 GO enrichment test for HGT candidates
+rule GO_enrich:
+    input:
+        annot = join(ANNOT, 'amoeba', '{amoeba}_annotations.txt'),
+        candidates = join(OUT, '{amoeba}_HGT_candidates.txt')
+    output: join(OUT, 'go_enrich', '{amoeba}_enrich.txt')
+    shell: "Rscript scripts/go_enrich.R {input.annot} {input.candidates} {output}"
