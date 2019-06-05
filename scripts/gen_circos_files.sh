@@ -12,7 +12,7 @@ CAND="$4"
 MCSX="$5"
 
 # Only include scaffolds larger than 100kb
-len_cutoff=1000000
+len_cutoff=100000
 
 # Karyotype
 awk '/^>/ {if (seqlen){print seqlen}; printf "%s ",$0;seqlen=0;next;}

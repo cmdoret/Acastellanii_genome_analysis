@@ -14,7 +14,7 @@ hgt_candidates <- read_tsv(args[2]) %>%
   pull(GeneID)
 out_file <- args[3]
 tmp_mapfile <- paste(dirname(out_file), 'id2go.tsv', sep='/')
-out_fig <- paste0(tools::file_path_sans_ext(out_file), ".pdf")
+out_fig <- paste0(tools::file_path_sans_ext(out_file), ".svg")
 # Write geneID - GO terms mapping to file
 annot_tbl %>%
   dplyr::select(GeneID, `GO Terms`) %>%
@@ -64,7 +64,7 @@ tidy_res = as.tibble(allRes) %>%
   )
 
 # Visualise top enriched GO terms
-pdf(out_fig)
+svg(out_fig)
 ggplot(data=tidy_res %>% top_n(30, -weight), 
        aes(x=GO.ID, y=-log10(weight))) + 
        geom_segment(aes(xend=GO.ID, yend=min(-log10(weight))), size=1.1) +
