@@ -43,7 +43,8 @@ feature_len <- ggplot(data=gff %>%filter(type %in% c("CDS", "gene")),
     theme_minimal() +
     xlab("") + 
     ylab("log10 length") + 
-    ggtitle(clean_name)
+    ggtitle(clean_name) +
+    scale_y_continuous(limits = c(0, 6))
 
 q25 <- unname(quantile(gff_exons$n_exon, 0.25))
 med <- median(gff_exons$n_exon)
@@ -68,11 +69,12 @@ exon_per_gene <- ggplot(data=gff_exons, aes(x=n_exon, fill=n_exon_quant)) +
     geom_vline(xintercept=med) +
     theme_minimal() +
     ylab("Genes") +
-    xlab("Exons per genes")
+    xlab("Exons per genes") +
+    scale_x_continuous(limits = c(-0, 100))
 
 
 ### SAVE OUTPUT ###
-pdf(out_plot)
+svg(out_plot)
 grid.arrange(feature_len, exon_per_gene)
 dev.off()
 

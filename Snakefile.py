@@ -62,7 +62,7 @@ rule all:
                    groups=list(taxo_groups.keys()), amoeba=Acastellanii_strains),
         join(OUT, 'orthoMCL', 'amoeba_groups.txt'),
         #expand(join(TMP, "{group}_genomes_filtered.fa"), group=taxo_groups.keys()),
-        expand(join(OUT, 'plots', '{amoeba}_annot_stats.pdf'), amoeba=["Neff", "NEFF_v1.43"]),
+        expand(join(OUT, 'plots', '{amoeba}_annot_stats.svg'), amoeba=["Neff", "NEFF_v1.43"]),
         join(TMP, 'Neff_hog_taxon.txt'),
         expand(join(OUT, '{amoeba}_sighunt.bed'), amoeba=Acastellanii_strains),
         join(OUT, "MCScanX", "MCScanX.done"),
@@ -75,7 +75,7 @@ include: 'workflows/orthomcl.smk'
 # 00 General annotations stats from amoeba GFF files
 rule amoeba_annot_stats:
     input: join(ANNOT, 'amoeba', '{amoeba}.gff')
-    output: join(OUT, 'plots', '{amoeba}_annot_stats.pdf')
+    output: join(OUT, 'plots', '{amoeba}_annot_stats.svg')
     shell: "Rscript scripts/annot_stats.R {input} {output}"
 
 # 01 Scan amoeba genomes to identify regions of different 4-mer signatures
