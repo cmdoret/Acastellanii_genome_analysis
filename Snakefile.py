@@ -67,7 +67,8 @@ rule all:
         expand(join(OUT, '{amoeba}_sighunt.bed'), amoeba=Acastellanii_strains),
         join(OUT, "MCScanX", "MCScanX.done"),
         expand(join(OUT, 'plots', 'circos_{amoeba}.svg'), amoeba="Neff"),
-        expand(join(OUT, 'go_enrich', '{amoeba}_enrich.txt'), amoeba="Neff")
+        expand(join(OUT, 'go_enrich', '{amoeba}_enrich.txt'), amoeba="Neff"),
+        join(OUT, 'plots', 'assembly_radars.svg')
 
 include: 'workflows/downloaders.smk'
 include: 'workflows/orthomcl.smk'
@@ -77,6 +78,18 @@ rule amoeba_annot_stats:
     input: join(ANNOT, 'amoeba', '{amoeba}.gff')
     output: join(OUT, 'plots', '{amoeba}_annot_stats.svg')
     shell: "Rscript scripts/annot_stats.R {input} {output}"
+
+# 00b Visualise assembly stats
+rule radar_plot_assembly:
+    input: expand(join(GENOMES, 'amoeba', '{amoeba}.fa'), amoeba=Acastellanii_strains + ["NEFF_v1"])
+    output: join(OUT, 'plots', 'assembly_radars.svg')
+    params:
+        assembly_tbl = join(TMP, 'assembly_tbl.tsv')
+    shell:
+        """
+        assembly-stats -t {input} > {params.assembly_tbl}
+        Rscript scripts/radar_assembly_stats.R {params.assembly_tbl} {output}
+        """
 
 # 01 Scan amoeba genomes to identify regions of different 4-mer signatures
 rule sighunt_scan:
