@@ -7,7 +7,7 @@ Currently, the genome of the C3 strain is still at the polishing stage it should
 ## [Assembly pipeline](doc/assembly_pipeline.md)
 ## [Annotation pipeline](doc/annotation_pipeline.md)
 
-The comparative analysis can be run using the Snakefile.
+The comparative analysis can be run using snakemake (data not available yet).
 
 Requirements:
 * python3:
