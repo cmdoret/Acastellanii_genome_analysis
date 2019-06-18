@@ -1,7 +1,7 @@
 ### Python ###
 # Snakemake
 .snakemake
-
+data/input/genomes/
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
