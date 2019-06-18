@@ -2,6 +2,8 @@
 
 This repository contains the scripts and documentation for the assembly and comparative genomics of two strains of Acanthamoeba castellanii (Neff and C3). The assembly process was done by combining Oxford Nanopore long reads with illumina shotgun libraries and Hi-C data. The assembly and annotation pipelines are documented in separate files:
 
+Currently, the genome of the C3 strain is still at the polishing stage it should should soon be finished to allow comparative analyses.
+
 ## [Assembly pipeline](doc/assembly_pipeline.md)
 ## [Annotation pipeline](doc/annotation_pipeline.md)
 
