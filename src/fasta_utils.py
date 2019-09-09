@@ -7,6 +7,7 @@ from BCBio import GFF
 import urllib
 import time
 import re
+import os
 
 
 def safe_request(fun):
@@ -96,7 +97,7 @@ def fetch_fasta(seq_id, db="nucleotide", email="someone@email.com"):
 
 
 @safe_request
-def name_to_proteins(name, db="protein", email="someone@email.com"):
+def name_to_proteins(name, db="protein", email="someone@email.com", filters=""):
     """
     Given an organism name, fetch all available protein sequences.
 
@@ -108,6 +109,9 @@ def name_to_proteins(name, db="protein", email="someone@email.com"):
         Entrez db name to use for the search.
     email : str
         User email for identification.
+    filters : str
+        Additional filters to use for the query. E.g. " AND refseq[filter]" to
+        filter results from refseq
 
     Returns
     -------

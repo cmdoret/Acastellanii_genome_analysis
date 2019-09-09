@@ -1,0 +1,3 @@
+strain	genome	proteome	annotations
+#Neff	data/input/genomes/Neff_assembly.fa	data/input/Neff_proteins.fa	data/input/annotations/Neff_annotations.gff
+C3	data/input/genomes/C3_assembly.fa	data/input/C3_proteins.fa	data/input/annotations/C3_annotations.gff
