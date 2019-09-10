@@ -17,6 +17,12 @@ import pandas as pd
 from src import fasta_utils as fu
 from src import misc_utils as mu
 from src import orthology_utils as ou
+# library
+import matplotlib as mpl
+import matplotlib.pyplot as plt
+from matplotlib_venn import venn3
+mpl.use('TkAgg')
+
 
 # Strains Neff and "old" of Acanthamoeba castellanii
 #Acastellanii_strains = ["Neff", "C3"]
@@ -66,16 +72,21 @@ bact_df = pd.read_csv(join(IN, 'misc', 'bacteria_names.tsv'), sep='\t', header=N
 
 rule all:
     input:
-        join(OUT, 'orthofinder.flag')
-        #expand(join(OUT, 'plots', '{amoeba}_annot_stats.svg'), amoeba=["Neff", "C3"]),
-        #join(OUT, "MCScanX", "MCScanX.done"),
+        join(OUT, 'GLOOME'),
+        expand(join(OUT, 'plots', '{amoeba}_annot_stats.svg'), amoeba=["Neff", "C3", "NEFF_v1"]),
+        expand(join(OUT, 'plots', 'rdna_mat_{amoeba}.svg'), amoeba=samples.strain),
+        join(OUT, "MCScanX", "MCScanX.done"),
         #expand(join(OUT, 'plots', 'circos_{amoeba}.svg'), amoeba="Neff"),
         #expand(join(OUT, 'go_enrich', '{amoeba}_enrich.txt'), amoeba="Neff"),
-        #join(OUT, 'plots', 'assembly_radars.svg')
+        join(OUT, 'plots', 'assembly_radars.svg'),
+        join(OUT, 'specific_genes', 'acastellanii.svg')
+
 
 include: 'rules/00_annot_stats.smk'
 include: 'rules/01_downloaders.smk'
-include: 'rules/02_orthofinder.smk'
+include: 'rules/02_horizontal_gene_transfer.smk'
+include: 'rules/03_rdna.smk'
+include: 'rules/04_synteny.smk'
 
 
 # 10 GO enrichment test for HGT candidates
