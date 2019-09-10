@@ -76,10 +76,11 @@ rule all:
         expand(join(OUT, 'plots', '{amoeba}_annot_stats.svg'), amoeba=["Neff", "C3", "NEFF_v1"]),
         expand(join(OUT, 'plots', 'rdna_mat_{amoeba}.svg'), amoeba=samples.strain),
         join(OUT, "MCScanX", "MCScanX.done"),
-        #expand(join(OUT, 'plots', 'circos_{amoeba}.svg'), amoeba="Neff"),
+        expand(join(OUT, 'plots', 'circos_{amoeba}.svg'), amoeba="Neff"),
         #expand(join(OUT, 'go_enrich', '{amoeba}_enrich.txt'), amoeba="Neff"),
         join(OUT, 'plots', 'assembly_radars.svg'),
-        join(OUT, 'specific_genes', 'acastellanii.svg')
+        join(OUT, 'specific_genes', 'acastellanii.svg'),
+        join(OUT, 'orthofinder', 'blast', 'similarity_profile_bact.svg')
 
 
 include: 'rules/00_annot_stats.smk'

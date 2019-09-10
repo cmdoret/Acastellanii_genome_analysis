@@ -84,3 +84,53 @@ rule acastellanii_specific:
                 len(ortho.Orthogroup[(~ c3_abs) & (~ neff_abs) & out_pres])
             ), set_labels = ('A. castellanii C3', 'A. castellanii Neff', 'Amoeba'))
         fig.savefig(output['venn'])
+
+
+# Compute similarity profile between HGT candidates and bacteria 
+# versus the rest of amoeba genes
+rule bact_similarity:
+    input:
+        ac = join(OUT, 'specific_genes', 'Ac_specific.txt'),
+        orthofinder_dir = join(OUT, 'orthofinder')
+    output:
+        ac_sim = join(OUT, 'orthofinder', 'blast', 'ac_orthogroups_bact.blast'),
+        all_sim = join(OUT, 'orthofinder', 'blast', 'all_orthogroups_bact.blast')
+    threads: NCPUS
+    params:
+        ac_orthoseq = join(TMP, 'merged', 'ac_orthogroup_seq.fa'),
+        all_orthoseq = join(TMP, 'merged', 'all_orthogroup_seq.fa'),
+        db = '/data/resources/index/nr.dmnd'
+    singularity: 'docker://cmdoret/blast:2.9.0'
+    shell:
+        """
+        while read orthogroup; do
+            cat {input.orthofinder_dir}/Results_Sep10/Orthogroup_Sequences/{orthogroup}.fa \
+                > {params.ac_orthoseq}
+        done < <(tail -n+2 {input.ac} | cut -f1)
+
+        cat {input.orthofinder_dir}/Results_Sep10/Orthogroup_Sequences/*.fa \
+                > {params.all_orthoseq}
+        
+        blastp -threads {threads} \
+               -max-target-seqs 1 \
+               -taxids 2
+               -db {params.db} \
+               -query {params.ac_orthoseq} \
+               -outfmt 6 \
+               --out {output}
+        blastp -threads {threads} \
+               -max-target-seqs 1 \
+               -taxids 2
+               -db {params.db} \
+               -query {params.ac_orthoseq} \
+               -outfmt 6 \
+               --out {output}
+    
+        """
+
+rule compute_similarity_profile:
+    input:
+        ac_sim = join(OUT, 'orthofinder', 'blast', 'ac_orthogroups_bact.blast'),
+        all_sim = join(OUT, 'orthofinder', 'blast', 'all_orthogroups_bact.blast')
+    output: join(OUT, 'orthofinder', 'blast', 'similarity_profile_bact.svg')
+    shell: "Rscript scripts/02_similarity_profile.R {input.ac_sim} {input.all_sim} {output}"
