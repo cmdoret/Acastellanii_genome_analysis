@@ -1,5 +1,6 @@
 # Visualize Hi-C matrices and overlay rDNA positions on top
 import sys
+import os.path
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -8,6 +9,8 @@ from scipy.ndimage import gaussian_filter
 import cooler
 from scipy.sparse import coo_matrix
 import hicstuff.hicstuff as hcs
+import matplotlib as mpl
+import matplotlib.gridspec as gridspec
 
 ## LOAD CLI ARGS
 cool_path = sys.argv[1]
@@ -54,25 +57,38 @@ np.fill_diagonal(mat, 0)
 # sat_thr = np.percentile(mat[mat > 0], 85)
 
 # Plot heatmap with rDNA overlay
+
+plt.style.use("seaborn-whitegrid")
+gs = gridspec.GridSpec(4, 1, height_ratios=[5, 1, 1, 1])
+mpl.rcParams["figure.figsize"] = (5, 10)
 fig = plt.figure()
-coldict = {"18s_rRNA": ("b", "-."), "28s_rRNA": ("g", ":")}  # "8s_rRNA": ("r", "--")}
+ax1 = fig.add_subplot(gs[0])
+ax2 = fig.add_subplot(gs[1])
+ax3 = fig.add_subplot(gs[2])
+ax4 = fig.add_subplot(gs[3])
+fig.align_xlabels()
+ax2.margins(x=0)
+ax3.margins(x=0)
+ax4.margins(x=0)
+
+coldict = {"18s_rRNA": ("b", "-."), "28s_rRNA": ("g", ":"), "8s_rRNA": ("r", "--")}
 legend_entries = [
     mpatches.Patch(color=v[0], label=k, ls=v[1]) for k, v in coldict.items()
 ]
-plt.legend(handles=legend_entries, loc="lower right")
+plt.legend(handles=legend_entries, loc="top right")
 # mat[np.isnan(mat)] = 0
-plt.imshow(np.log(mat), cmap="Reds")
+ax1.imshow(np.log(mat), cmap="Reds")
 
 for r in gff.iterrows():
     if r[1]["attribute"] != "8s_rRNA":
-        plt.axvline(
+        ax1.axvline(
             x=r[1]["maxbin"],
             alpha=0.4,
             linestyle=coldict[r[1]["attribute"]][1],
             lw=2,
             c=coldict[r[1]["attribute"]][0],
         )
-        plt.axhline(
+        ax1.axhline(
             y=r[1]["maxbin"],
             alpha=0.4,
             linestyle=coldict[r[1]["attribute"]][1],
@@ -85,5 +101,20 @@ for r in gff.iterrows():
 # for r in chroms.iterrows():
 #    plt.axvline(x=c.extent(r[1]["name"])[1], alpha=0.4, c="black", lw=0.5)
 #    plt.axhline(y=c.extent(r[1]["name"])[1], alpha=0.4, c="black", lw=0.5)
+
+
+# Subset bins containing rRNA
+rdna_bins = {
+    sub: np.unique(gff.maxbin[gff.attribute == sub]) for sub in np.unique(gff.attribute)
+}
+# Compute contact sum per bin for each subunit
+rdna_sig = {}
+rdna_sig["28S"] = mat[rdna_bins["28s_rRNA"], :].mean(axis=0)
+rdna_sig["18S"] = mat[rdna_bins["18s_rRNA"], :].mean(axis=0)
+rdna_sig["8S"] = mat[rdna_bins["8s_rRNA"], :].mean(axis=0)
+
+ax2.plot(range(mat.shape[0]), np.log10(rdna_sig["28S"]), label="28S", lw=0.5, c="g")
+ax3.plot(range(mat.shape[0]), np.log10(rdna_sig["18S"]), label="18S", lw=0.5, c="b")
+ax4.plot(range(mat.shape[0]), np.log10(rdna_sig["8S"]), label="8S", lw=0.5, c="r")
 
 fig.savefig(out_path, dpi=900)
