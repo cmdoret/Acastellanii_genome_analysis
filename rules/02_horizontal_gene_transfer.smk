@@ -65,11 +65,11 @@ rule acastellanii_specific:
         out_pres = spec_df.apply(np.any, axis=1)
         out_abs = ~ out_pres
         c3_ortho = ortho.C3_proteins[neff_abs & (~ c3_abs) & out_abs]
-        c3_ortho.to_csv(output['c3'], header=False)
+        c3_ortho.to_csv(output['c3'], header=False, index=False)
         neff_ortho = ortho.Neff_proteins[c3_abs & (~ neff_abs) & out_abs]
-        neff_ortho.to_csv(output['neff'], header=False)
+        neff_ortho.to_csv(output['neff'], header=False, index=False)
         ac_ortho = ortho.Orthogroup[(~ ac_abs) & out_abs]
-        ac_ortho.to_csv(output['ac'], header=False)
+        ac_ortho.to_csv(output['ac'], header=False, index=Falseq)
 
         # Make Venn diagram. sets are A, B, AB, C, AC, BC, ABC
         fig = plt.figure()
@@ -99,32 +99,33 @@ rule bact_similarity:
     params:
         ac_orthoseq = join(TMP, 'merged', 'ac_orthogroup_seq.fa'),
         all_orthoseq = join(TMP, 'merged', 'all_orthogroup_seq.fa'),
-        db = '/data/resources/index/nr.dmnd'
+        db = join('/blast', 'nr', 'nr')
     singularity: 'docker://cmdoret/blast:2.9.0'
     shell:
         """
         while read orthogroup; do
-            cat {input.orthofinder_dir}/Results_Sep10/Orthogroup_Sequences/{orthogroup}.fa \
+            cat {input.orthofinder_dir}/Results_Sep10/Orthogroup_Sequences/$orthogroup.fa \
                 > {params.ac_orthoseq}
-        done < <(tail -n+2 {input.ac} | cut -f1)
-
-        cat {input.orthofinder_dir}/Results_Sep10/Orthogroup_Sequences/*.fa \
-                > {params.all_orthoseq}
+        done < {input.ac}
         
-        blastp -threads {threads} \
-               -max-target-seqs 1 \
-               -taxids 2
+        echo {input.orthofinder_dir}/Results_Sep10/Orthogroup_Sequences/*.fa |
+        xargs cat > {params.all_orthoseq}
+        
+        blastp -num_threads {threads} \
+               -max_target_seqs 5 \
+               -taxids 2 \
                -db {params.db} \
                -query {params.ac_orthoseq} \
                -outfmt 6 \
-               --out {output}
-        blastp -threads {threads} \
-               -max-target-seqs 1 \
-               -taxids 2
+               -out {output.ac_sim}
+        
+        blastp -num_threads {threads} \
+               -max_target_seqs 5 \
+               -taxids 2 \
                -db {params.db} \
                -query {params.ac_orthoseq} \
                -outfmt 6 \
-               --out {output}
+               -out {output.all_sim}
     
         """
 

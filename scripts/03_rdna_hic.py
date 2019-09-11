@@ -58,7 +58,7 @@ np.fill_diagonal(mat, 0)
 
 # Plot heatmap with rDNA overlay
 
-plt.style.use("seaborn-whitegrid")
+plt.style.use("seaborn-white")
 gs = gridspec.GridSpec(4, 1, height_ratios=[5, 1, 1, 1])
 mpl.rcParams["figure.figsize"] = (5, 10)
 fig = plt.figure()
@@ -71,36 +71,33 @@ ax2.margins(x=0)
 ax3.margins(x=0)
 ax4.margins(x=0)
 
-coldict = {"18s_rRNA": ("b", "-."), "28s_rRNA": ("g", ":"), "8s_rRNA": ("r", "--")}
+coldict = {
+    "18s_rRNA": ("b", "-.", "18S", ax3),
+    "28s_rRNA": ("g", ":", "28S", ax2),
+    "8s_rRNA": ("r", "--", "5S", ax4),
+}
 legend_entries = [
-    mpatches.Patch(color=v[0], label=k, ls=v[1]) for k, v in coldict.items()
+    mpatches.Patch(color=v[0], label=v[2], ls=v[1]) for k, v in coldict.items()
 ]
-plt.legend(handles=legend_entries, loc="top right")
+plt.legend(handles=legend_entries, loc="upper right")
 # mat[np.isnan(mat)] = 0
 ax1.imshow(np.log(mat), cmap="Reds")
 
+# Add vertical lines to line plots at rdna positions
 for r in gff.iterrows():
-    if r[1]["attribute"] != "8s_rRNA":
-        ax1.axvline(
-            x=r[1]["maxbin"],
-            alpha=0.4,
-            linestyle=coldict[r[1]["attribute"]][1],
-            lw=2,
-            c=coldict[r[1]["attribute"]][0],
-        )
-        ax1.axhline(
-            y=r[1]["maxbin"],
-            alpha=0.4,
-            linestyle=coldict[r[1]["attribute"]][1],
-            lw=2,
-            c=coldict[r[1]["attribute"]][0],
-        )
+    coldict[r[1]["attribute"]][3].axvline(
+        x=r[1]["maxbin"],
+        alpha=0.4,
+        # linestyle=coldict[r[1]["attribute"]][1],
+        lw=0.3,
+        c=coldict[r[1]["attribute"]][0],
+    )
 
 # Add chromosome grid
-
-# for r in chroms.iterrows():
-#    plt.axvline(x=c.extent(r[1]["name"])[1], alpha=0.4, c="black", lw=0.5)
-#    plt.axhline(y=c.extent(r[1]["name"])[1], alpha=0.4, c="black", lw=0.5)
+for r in chroms.iterrows():
+    ax2.axvline(x=c.extent(r[1]["name"])[1], alpha=0.4, c="grey", lw=0.5)
+    ax3.axvline(x=c.extent(r[1]["name"])[1], alpha=0.4, c="grey", lw=0.5)
+    ax4.axvline(x=c.extent(r[1]["name"])[1], alpha=0.4, c="grey", lw=0.5)
 
 
 # Subset bins containing rRNA
@@ -111,10 +108,10 @@ rdna_bins = {
 rdna_sig = {}
 rdna_sig["28S"] = mat[rdna_bins["28s_rRNA"], :].mean(axis=0)
 rdna_sig["18S"] = mat[rdna_bins["18s_rRNA"], :].mean(axis=0)
-rdna_sig["8S"] = mat[rdna_bins["8s_rRNA"], :].mean(axis=0)
+rdna_sig["5S"] = mat[rdna_bins["8s_rRNA"], :].mean(axis=0)
 
 ax2.plot(range(mat.shape[0]), np.log10(rdna_sig["28S"]), label="28S", lw=0.5, c="g")
 ax3.plot(range(mat.shape[0]), np.log10(rdna_sig["18S"]), label="18S", lw=0.5, c="b")
-ax4.plot(range(mat.shape[0]), np.log10(rdna_sig["8S"]), label="8S", lw=0.5, c="r")
+ax4.plot(range(mat.shape[0]), np.log10(rdna_sig["5S"]), label="5S", lw=0.5, c="r")
 
 fig.savefig(out_path, dpi=900)
