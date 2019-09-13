@@ -68,13 +68,17 @@ CIRCOS = join(IN, 'misc', 'circos_conf')
 vir_df = pd.read_csv(join(IN, 'misc', 'virus_names.tsv'), sep='\t', header=None)
 bact_df = pd.read_csv(join(IN, 'misc', 'bacteria_names.tsv'), sep='\t', header=None)
 
+## WILDCARD CONSTRAINTS
+wildcard_constraints:
+  strain="|".join(samples.index)
+
 # ===========================
 
 rule all:
     input:
         join(OUT, 'GLOOME'),
-        expand(join(OUT, 'plots', '{amoeba}_annot_stats.svg'), amoeba=["Neff", "C3", "NEFF_v1"]),
-        expand(join(OUT, 'plots', 'rdna_mat_{amoeba}.svg'), amoeba=samples.strain),
+        expand(join(OUT, 'plots', '{strain}_annot_stats.svg'), strain=["Neff", "C3", "NEFF_v1"]),
+        expand(join(OUT, 'plots', 'rdna_mat_{strain}.svg'), strain=samples.strain),
         join(OUT, "MCScanX", "MCScanX.done"),
         join(OUT, 'plots', 'circos.svg'),
         #expand(join(OUT, 'go_enrich', '{amoeba}_enrich.txt'), amoeba="Neff"),
