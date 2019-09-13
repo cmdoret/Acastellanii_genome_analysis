@@ -99,7 +99,7 @@ rule bact_similarity:
     params:
         ac_orthoseq = join(TMP, 'merged', 'ac_orthogroup_seq.fa'),
         all_orthoseq = join(TMP, 'merged', 'all_orthogroup_seq.fa'),
-        db = join('/blast', 'nr', 'nr')
+        db = join('/blast', 'nr_v5', 'nr.v5')
     singularity: 'docker://cmdoret/blast:2.9.0'
     shell:
         """
