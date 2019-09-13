@@ -3,7 +3,7 @@
 rule orthofinder:
     input: 
         of_dir = join(OUT, 'amoeba_proteomes'),
-        ac_proteomes = samples.proteome
+        ac_proteomes = expand(join(TMP, 'renamed', '{strain}_proteome.fa'), strain=samples.strain)
     output: directory(join(OUT, 'orthofinder'))
     threads: NCPUS
     shell:
@@ -135,3 +135,9 @@ rule compute_similarity_profile:
         all_sim = join(OUT, 'orthofinder', 'blast', 'all_orthogroups_bact.blast')
     output: join(OUT, 'orthofinder', 'blast', 'similarity_profile_bact.svg')
     shell: "Rscript scripts/02_similarity_profile.R {input.ac_sim} {input.all_sim} {output}"
+
+# TODO: filter Ac_specifig genes based on similarity with bacteria
+rule select_HGT_candidates:
+    input: join(OUT, 'specific_genes', 'Ac_specific.txt')
+    output: join(OUT, 'HGT_candidates.txt')
+    shell: "cp {input} {output}"
