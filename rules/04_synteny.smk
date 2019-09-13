@@ -2,9 +2,9 @@
 # 00 merge genomes and annotations
 rule combine_strains:
     input:
-        prot = samples.proteome,
-        annot = samples.annotations,
-        genome = samples.genome
+        prot = expand(join(TMP, 'renamed', '{strain}_proteome.fa'), strain=samples.strain),
+        annot = expand(join(TMP, 'renamed', '{strain}_annotations.gff'), strain=samples.strain),
+        genome = expand(join(TMP, 'renamed', '{strain}_genome.fa'), strain=samples.strain)
     output:
         prot = join(TMP, 'merged', 'proteins.fa'),
         genome = join(TMP, 'merged', 'genome.fa'),
@@ -13,30 +13,17 @@ rule combine_strains:
         """
         echo -n "" > {output.prot}
         for i in {input.prot}; do
-            # Prepend strain-specific id to each scaffold
-            sp=$(basename $i)
-            sp=${{sp%%_*}}
-            sed 's/^>\(.*\)$/>'"$sp"'_\\1/' $i >> {output.prot}
+            cat $i >> {output.prot}
         done
 
         echo -n "" > {output.genome}
         for i in {input.genome}; do
-            # Prepend strain-specific id to each scaffold
-            sp=$(basename $i)
-            sp=${{sp%%_*}}
-            sed 's/^>\(.*\)$/>'"$sp"'_\\1/' $i >> {output.genome}
+            cat $i >> {output.genome}
         done
 
         echo -n "" > {output.annot}
         for i in {input.annot}; do
-            sp=$(basename $i)
-            sp=${{sp%%_*}}
-            echo "----------"
-            echo $i
-            echo $sp
-            echo "----------"
-            sed 's/^/'"$sp"'_/' $i |
-                sed 's/ID=/ID='"$sp"'_/' >> {output.annot}
+            cat $i >> {output.annot}
         done
         """
 
@@ -63,9 +50,7 @@ rule mcscanx_amoeba:
 rule circos:
     input:
         ref = join(TMP, 'merged', 'genome.fa'),
-        #sighunt = join(OUT, '{amoeba}_sighunt.bed.agg'),
-        #interpro = join(OUT, '{amoeba}_interpro_bac_hist.txt'),
-        #candidates = join(OUT, '{amoeba}_HGT_candidates.txt'),
+        candidates = join(OUT, 'HGT_candidates.txt'),
         mcscx_flag = join(OUT, 'MCScanX', 'MCScanX.done')
     output:
         karyotype = join(OUT, 'plots', 'circos.svg')
