@@ -14,7 +14,7 @@ rule rename_entries:
         st={wildcards.strain}
         sed 's/^>\(.*\)/>'"$st"'_\\1/' {input.genome} > {output.genome}
         sed 's/^>\(.*\)/>'"$st"'_\\1/' {input.proteome} > {output.proteome}
-        sed 's/^/'"$st"'_/' {input.annotations} |
+        sed 's/^\([^#]\)/'"$st"'_\\1/' {input.annotations} |
             sed 's/ID=/ID='"$st"'_/' | 
             sed 's/Parent=/Parent='"$st"'_/' \
             > {output.annotations}
