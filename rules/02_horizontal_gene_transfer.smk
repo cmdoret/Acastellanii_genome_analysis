@@ -9,7 +9,7 @@ rule orthofinder:
     shell:
         """
         cp {input.ac_proteomes} {input.of_dir}
-        orthofinder -f {input.of_dir} -o {output} -S diamond -t {threads} 
+        orthofinder -f {input.of_dir} -o {output} -S diamond -t {threads} -n "amoeba"
         """
 
 # Get presence / absence info into GLOOME compatible format
@@ -20,9 +20,9 @@ rule format_presence_mat:
         tree = join(TMP, 'GLOOME', 'tree.newick')
     shell:
         """
-        cat {input}/Results_Sep10/Species_Tree/SpeciesTree_rooted.txt > {output.tree}
-        python scripts/orthocount_to_fasta.py \
-            {input}/Results_Sep10/Orthogroups/Orthogroups.GeneCount.tsv \
+        cat {input}/Results_amoeba/Species_Tree/SpeciesTree_rooted.txt > {output.tree}
+        python scripts/02_orthocount_to_fasta.py \
+            {input}/Results_amoeba/Orthogroups/Orthogroups.GeneCount.tsv \
             {output.matrix}
         """
 
@@ -51,9 +51,9 @@ rule acastellanii_specific:
         c3 = join(OUT, 'specific_genes', 'C3_specific.txt'),
         neff = join(OUT, 'specific_genes', 'Neff_specific.txt'),
         ac = join(OUT, 'specific_genes', 'Ac_specific.txt'),
-        venn = join(OUT, 'specific_genes', 'acastellanii.svg')
+        venn = join(OUT, 'plots', 'gene_families_venn.svg')
     run:
-        ortho = pd.read_csv(join(input[0], "Results_Sep10", "Orthogroups", "Orthogroups.tsv"), sep='\t')
+        ortho = pd.read_csv(join(input[0], "Results_amoeba", "Orthogroups", "Orthogroups.tsv"), sep='\t')
         c3_abs = ortho.C3_proteins.isnull().values
         neff_abs = ortho.Neff_proteins.isnull().values
         ac_abs = c3_abs & neff_abs
@@ -69,7 +69,7 @@ rule acastellanii_specific:
         neff_ortho = ortho.Neff_proteins[c3_abs & (~ neff_abs) & out_abs]
         neff_ortho.to_csv(output['neff'], header=False, index=False)
         ac_ortho = ortho.Orthogroup[(~ ac_abs) & out_abs]
-        ac_ortho.to_csv(output['ac'], header=False, index=Falseq)
+        ac_ortho.to_csv(output['ac'], header=False, index=False)
 
         # Make Venn diagram. sets are A, B, AB, C, AC, BC, ABC
         fig = plt.figure()
@@ -104,11 +104,11 @@ rule bact_similarity:
     shell:
         """
         while read orthogroup; do
-            cat {input.orthofinder_dir}/Results_Sep10/Orthogroup_Sequences/$orthogroup.fa \
+            cat {input.orthofinder_dir}/Results_amoeba/Orthogroup_Sequences/$orthogroup.fa \
                 > {params.ac_orthoseq}
         done < {input.ac}
         
-        echo {input.orthofinder_dir}/Results_Sep10/Orthogroup_Sequences/*.fa |
+        echo {input.orthofinder_dir}/Results_amoeba/Orthogroup_Sequences/*.fa |
         xargs cat > {params.all_orthoseq}
         
         blastp -num_threads {threads} \

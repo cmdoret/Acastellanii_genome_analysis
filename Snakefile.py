@@ -83,7 +83,7 @@ rule all:
         join(OUT, 'plots', 'circos.svg'),
         #expand(join(OUT, 'go_enrich', '{amoeba}_enrich.txt'), amoeba="Neff"),
         join(OUT, 'plots', 'assembly_radars.svg'),
-        join(OUT, 'specific_genes', 'acastellanii.svg'),
+        join(OUT, 'plots', 'gene_families_venn.svg'),
         join(OUT, 'orthofinder', 'blast', 'similarity_profile_bact.svg')
 
 
