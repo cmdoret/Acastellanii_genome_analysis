@@ -2,6 +2,8 @@
 # Snakemake
 .snakemake
 data/input/genomes/
+data/tmp/
+data/out/
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
