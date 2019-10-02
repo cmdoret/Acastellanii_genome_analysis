@@ -93,13 +93,14 @@ rule bact_similarity:
         ac = join(OUT, 'specific_genes', 'Ac_specific.txt'),
         orthofinder_dir = join(OUT, 'orthofinder')
     output:
-        ac_sim = join(OUT, 'orthofinder', 'blast', 'ac_orthogroups_bact.blast'),
-        all_sim = join(OUT, 'orthofinder', 'blast', 'all_orthogroups_bact.blast')
+        ac_sim = join(OUT, 'orthofinder', 'blast', 'ac_orthogroup_bact.blast'),
+        all_sim = join(OUT, 'orthofinder', 'blast', 'all_orthogroup_bact.blast')
     threads: NCPUS
     params:
         ac_orthoseq = join(TMP, 'merged', 'ac_orthogroup_seq.fa'),
         all_orthoseq = join(TMP, 'merged', 'all_orthogroup_seq.fa'),
-        db = join('/blast', 'nr_v5', 'nr.v5')
+        db = join(DB, 'blast', 'nr_v5', 'nr_v5')
+        #db = join(DB, 'blast', 'nr_v5', 'nr.v5')
     singularity: 'docker://cmdoret/blast:2.9.0'
     shell:
         """
@@ -123,7 +124,7 @@ rule bact_similarity:
                -max_target_seqs 5 \
                -taxids 2 \
                -db {params.db} \
-               -query {params.ac_orthoseq} \
+               -query {params.all_orthoseq} \
                -outfmt 6 \
                -out {output.all_sim}
     
@@ -131,9 +132,10 @@ rule bact_similarity:
 
 rule compute_similarity_profile:
     input:
-        ac_sim = join(OUT, 'orthofinder', 'blast', 'ac_orthogroups_bact.blast'),
-        all_sim = join(OUT, 'orthofinder', 'blast', 'all_orthogroups_bact.blast')
+        ac_sim = join(OUT, 'orthofinder', 'blast', 'ac_orthogroup_bact.blast'),
+        all_sim = join(OUT, 'orthofinder', 'blast', 'all_orthogroup_bact.blast')
     output: join(OUT, 'orthofinder', 'blast', 'similarity_profile_bact.svg')
+    conda: "../envs/r.yaml"
     shell: "Rscript scripts/02_similarity_profile.R {input.ac_sim} {input.all_sim} {output}"
 
 # TODO: filter Ac_specifig genes based on similarity with bacteria
