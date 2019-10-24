@@ -36,7 +36,7 @@ def safe_request(fun):
             if e.code in (429, 502):
                 time.sleep(5)
                 print("Sending too many requests, sleeping 5sec and retrying...")
-                fun(*args, **kwargs)
+                wrapped_f(*args, **kwargs)
             else:
                 print("No sequence found for %s" % args[0])
                 return None
@@ -120,13 +120,24 @@ def name_to_proteins(name, db="protein", email="someone@email.com", filters=""):
     
     """
     Entrez.email = email
+    query_string = name + "[Orgn]"
+    time.sleep(0.1)
     # First search to see the number of hits (returns values for 10 by default)
-    query = Entrez.read(Entrez.esearch(term=name + "[Orgn]", db=db, email=email))
-    # Get N hits
-    count = query["Count"]
-    # Real search, specifying max number of values
-    query = Entrez.read(Entrez.esearch(term=name + "[Orgn]", db=db, retmax=count))
-    seqs = Entrez.efetch(id=query["IdList"], rettype="fasta", db=db)
+    query = Entrez.read(
+        Entrez.esearch(term=query_string, db=db, email=email, retmax=10 ** 9)
+    )
+    seqs = ""
+    s = 0
+    chunk_size = 1000
+    # Fetch proteins by batch of 100 to avoid maximum number of queries
+    for e in range(chunk_size, len(query["IdList"]), chunk_size):
+        print(f"fetching entries {s} to {e}")
+        seqs += Entrez.efetch(id=query["IdList"][s:e], rettype="fasta", db=db).read()
+        s = e
+        time.sleep(0.1)
+    e = len(query["IdList"])
+    print(f"fetching entries {s} to {e}")
+    seqs += Entrez.efetch(id=query["IdList"][s:e], rettype="fasta", db=db).read()
     return seqs
 
 
