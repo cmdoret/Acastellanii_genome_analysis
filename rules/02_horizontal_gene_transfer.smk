@@ -51,22 +51,30 @@ rule acastellanii_specific:
         c3 = join(OUT, 'specific_genes', 'C3_specific.txt'),
         neff = join(OUT, 'specific_genes', 'Neff_specific.txt'),
         ac = join(OUT, 'specific_genes', 'Ac_specific.txt'),
-        venn = join(OUT, 'plots', 'gene_families_venn.svg')
+        venn = join(OUT, 'plots', 'gene_families_venn.svg'),
+        pres_mat = join(OUT, 'specific_genes', 'presence_matrix.tsv')
     run:
         ortho = pd.read_csv(join(input[0], "Results_amoeba", "Orthogroups", "Orthogroups.tsv"), sep='\t')
-        c3_abs = ortho.C3_proteins.isnull().values
-        neff_abs = ortho.Neff_proteins.isnull().values
+        # Get gene families absent in C3, Neff and all of A. castellanii
+        c3_abs = ortho.C3_proteome.isnull().values
+        neff_abs = ortho.Neff_proteome.isnull().values
         ac_abs = c3_abs & neff_abs
+        
+        # Save presence matrix for further analysis
+        pres_mat = ortho.drop(columns='Orthogroup').apply(lambda c: ~c.isnull(), axis=0)
+        pres_mat.index = ortho.Orthogroup
+        pres_mat.to_csv(output['pres_mat'], index=True, header=True, sep='\t')
+        
         # Remove species of interest
-        spec_df = ortho.drop(columns=['Orthogroup', 'C3_proteins', 'Neff_proteins'])
+        spec_df = ortho.drop(columns=['Orthogroup', 'C3_proteome', 'Neff_proteome'])
         # Binarize variables: Is there any gene for species c in each orthogroup
-        spec_df = spec_df.apply(lambda c: c.isnull(), axis=0)
+        spec_df = spec_df.apply(lambda c: ~ c.isnull(), axis=0)
         # Summarize results: Does any species have at least one gene in each orthogroup
         out_pres = spec_df.apply(np.any, axis=1)
         out_abs = ~ out_pres
-        c3_ortho = ortho.C3_proteins[neff_abs & (~ c3_abs) & out_abs]
+        c3_ortho = ortho.C3_proteome[neff_abs & (~ c3_abs) & out_abs]
         c3_ortho.to_csv(output['c3'], header=False, index=False)
-        neff_ortho = ortho.Neff_proteins[c3_abs & (~ neff_abs) & out_abs]
+        neff_ortho = ortho.Neff_proteome[c3_abs & (~ neff_abs) & out_abs]
         neff_ortho.to_csv(output['neff'], header=False, index=False)
         ac_ortho = ortho.Orthogroup[(~ ac_abs) & out_abs]
         ac_ortho.to_csv(output['ac'], header=False, index=False)
@@ -104,9 +112,10 @@ rule bact_similarity:
     singularity: 'docker://cmdoret/blast:2.9.0'
     shell:
         """
+        echo -n "" > {params.ac_orthoseq}
         while read orthogroup; do
             cat {input.orthofinder_dir}/Results_amoeba/Orthogroup_Sequences/$orthogroup.fa \
-                > {params.ac_orthoseq}
+                >> {params.ac_orthoseq}
         done < {input.ac}
         
         echo {input.orthofinder_dir}/Results_amoeba/Orthogroup_Sequences/*.fa |
@@ -127,7 +136,6 @@ rule bact_similarity:
                -query {params.all_orthoseq} \
                -outfmt 6 \
                -out {output.all_sim}
-    
         """
 
 rule compute_similarity_profile:
