@@ -9,14 +9,15 @@ rule fetch_proteomes:
         os.makedirs(output[0])
         n_amoeba = params['amoeba'].shape[0]
         for num_dl, organism in enumerate(params['amoeba'].iterrows()):
-            #print(organism)
+            print(organism)
             mu.progbar(num_dl, n_amoeba, "Downloading proteomes")
             time.sleep(0.1) # Do not spam NCBI :)
-            genome = fu.name_to_proteins(organism[0], email=email, filters=" AND refseq[filter]")
+            proteome = fu.name_to_proteins(organism[0], email=email, filters=" AND refseq[filter]")
             fname = organism[0].lower().replace(" ", "_")
             try:
+                print(f"Writing {proteome.count('>')} proteins for {organism[0]}.")
                 with open(join(output[0], fname + ".fa"), 'w') as outf:
-                    outf.write(genome.read())
+                    outf.write(proteome)
             except TypeError:
                 print(f"No proteome found for {organism[0]}")
                 pass
