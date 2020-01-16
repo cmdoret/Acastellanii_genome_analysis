@@ -49,7 +49,7 @@ NCPUS = config['n_cpus']
 samples = pd.read_csv(config['samples'], sep='\t', dtype=str, comment='#').set_index(['strain'], drop=False)
 #validate(samples, schema="schemas/samples.schema.yaml")
 
-amoeba = pd.read_csv(config['amoeba_species'], sep='\t', comment='#', dtype=str)
+organisms = pd.read_csv(config['compare_species'], sep='\t', comment='#', dtype=str)
 
 
 email = 'cmatthey@pasteur.fr'

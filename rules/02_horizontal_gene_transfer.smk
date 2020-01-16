@@ -1,9 +1,9 @@
 
-# Build pangenome and protein tree from amoeba
+# Build pangenome and protein tree from amoeba and bacteria
 rule orthofinder:
     input: 
-        of_dir = join(OUT, 'amoeba_proteomes'),
-        ac_proteomes = expand(join(TMP, 'renamed', '{strain}_proteome.fa'), strain=samples.strain)
+        of_dir = join(OUT, 'proteomes'),
+        ac_proteomes = expand(join(TMP, 'renamed', '{strain}_proteome.fa'), strain=samples.strain),
     output: directory(join(OUT, 'orthofinder'))
     threads: NCPUS
     shell:

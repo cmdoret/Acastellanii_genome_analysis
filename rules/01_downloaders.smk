@@ -1,28 +1,27 @@
 # Rules to fetch resources and data from online sources
 
-# 00 Download all protein sequences from bacterial and viral groups of interest
+# 00 Download all protein sequences from groups of interest
 rule fetch_proteomes:
-    output: directory(join(OUT, 'amoeba_proteomes'))
+    output: directory(join(OUT, 'proteomes'))
     params:
-        amoeba = amoeba
+        org = organisms
     run:
         os.makedirs(output[0])
-        n_amoeba = params['amoeba'].shape[0]
-        for num_dl, organism in enumerate(params['amoeba'].iterrows()):
+        n_orgs = params['org'].shape[0]
+        for num_dl, org_row in enumerate(params['org'].iterrows()):
+            organism = org_row[1][1]
             print(organism)
-            mu.progbar(num_dl, n_amoeba, "Downloading proteomes")
+            mu.progbar(num_dl, n_orgs, "Downloading proteomes")
             time.sleep(0.1) # Do not spam NCBI :)
-            proteome = fu.name_to_proteins(organism[0], email=email, filters=" AND refseq[filter]")
-            fname = organism[0].lower().replace(" ", "_")
+            proteome = fu.name_to_proteins(organism, email=email, filters=" AND refseq[filter]")
+            fname = organism.lower().replace(" ", "_")
             try:
-                print(f"Writing {proteome.count('>')} proteins for {organism[0]}.")
+                print(f"Writing {proteome.count('>')} proteins for {organism}.")
                 with open(join(output[0], fname + ".fa"), 'w') as outf:
                     outf.write(proteome)
             except TypeError:
                 print(f"No proteome found for {organism[0]}")
                 pass
-
-
 # Download bacterial and viral genomes from interesting species
 #rule fetch_genomes:
 #    input:  join(IN, 'misc', '{group}_names.tsv')
