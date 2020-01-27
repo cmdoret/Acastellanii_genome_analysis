@@ -37,6 +37,9 @@ mat = c.pixels()[:]
 bins = c.bins()
 chroms = c.chroms()[:]
 
+# Remove chromosomes that are absent from cool
+#gff = gff.loc[np.isin(gff.seqname, chroms['name']), :]
+
 ## TRANSFORM
 
 # Transform rDNA coords to bins
@@ -47,7 +50,8 @@ gff["minbin"] = gff.apply(
 gff["maxbin"] = gff.apply(
     lambda r: np.max(bins.fetch(f"{r.seqname}:{r.start}-{r.end}").index.values), axis=1
 )
-gff = gff.drop_duplicates(subset=["minbin", "maxbin"])
+
+gff = gff.drop_duplicates(subset=["attribute", "minbin", "maxbin"])
 
 ## VISUALIZE
 mat = c.matrix(balance=False)[:]
