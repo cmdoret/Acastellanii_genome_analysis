@@ -24,11 +24,13 @@ rule rename_entries:
 rule amoeba_annot_stats:
     input: join(TMP, 'renamed', '{strain}_annotations.gff')
     output: join(OUT, 'plots', '{strain}_annot_stats.svg')
+    conda: '../envs/r.yaml'
     shell: "Rscript scripts/00_annot_stats.R {input} {output}"
 
 rule Neff_v1_annot_stats:
     input: join(IN, 'annotations', 'NEFF_v1.43.gff')
     output: join(OUT, 'plots', 'NEFF_v1_annot_stats.svg')
+    conda: '../envs/r.yaml'
     shell: "Rscript scripts/00_annot_stats.R {input} {output}"
 
 # 00b Visualise assembly stats
@@ -38,6 +40,7 @@ rule radar_plot_assembly:
     params:
         neff_v1 = join(IN, 'genomes', 'NEFF_v1.fa'),
         assembly_tbl = join(TMP, 'assembly_tbl.tsv')
+    conda: '../envs/r.yaml'
     shell:
         """
         assembly-stats -t {input} {params.neff_v1} > {params.assembly_tbl}

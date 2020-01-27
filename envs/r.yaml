@@ -1,0 +1,9 @@
+name: r
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+  - r
+dependencies:
+  - r-tidyverse
+  - r-ggpubr
