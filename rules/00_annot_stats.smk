@@ -2,7 +2,7 @@
 # collisions between strains.
 rule rename_entries:
     input:
-        genome = lambda w: samples.proteome[f'{w.strain}'],
+        genome = lambda w: samples.genome[f'{w.strain}'],
         proteome = lambda w: samples.proteome[f'{w.strain}'],
         annotations = lambda w: samples.annotations[f'{w.strain}']
     output:
@@ -46,3 +46,13 @@ rule radar_plot_assembly:
         assembly-stats -t {input} {params.neff_v1} > {params.assembly_tbl}
         Rscript scripts/00_radar_assembly_stats.R {params.assembly_tbl} {output}
         """
+
+rule quast_report:
+  input: expand(join(TMP, 'renamed', '{strain}_genome.fa'), strain=samples.strain)
+  output: join(OUT, 'plots', 'acastellanii_quast_report.pdf')
+  params:
+    ref_fa = join(IN, 'genomes', 'NEFF_v1.fa'),
+    ref_gff = join(IN, 'annotations', 'NEFF_v1.43.gff')
+  conda: '../envs/quast.yaml'
+  threads: NCPUS
+  shell: 'quast -t {threads} -e -g {params.ref_gff} -r {params.ref_fa} -o {output} {input}'

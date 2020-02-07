@@ -20,7 +20,7 @@ from src import orthology_utils as ou
 # library
 import matplotlib as mpl
 import matplotlib.pyplot as plt
-from matplotlib_venn import venn3
+from matplotlib_venn import venn3, venn2
 mpl.use('TkAgg')
 
 
@@ -49,7 +49,9 @@ NCPUS = config['n_cpus']
 samples = pd.read_csv(config['samples'], sep='\t', dtype=str, comment='#').set_index(['strain'], drop=False)
 #validate(samples, schema="schemas/samples.schema.yaml")
 
+# Load the list of organisms to be used for comparisons and use clean names for files (no spaces, no capitals)
 organisms = pd.read_csv(config['compare_species'], sep='\t', comment='#', dtype=str)
+organisms['clean_name'] = organisms['name'].apply(lambda n: n.lower().replace(" ", "_"))
 
 
 email = 'cmatthey@pasteur.fr'
@@ -65,12 +67,10 @@ GENOMES = join(IN, 'genomes')
 DB = join(IN, 'db')
 CIRCOS = join(IN, 'misc', 'circos_conf')
 
-vir_df = pd.read_csv(join(IN, 'misc', 'virus_names.tsv'), sep='\t', header=None)
-bact_df = pd.read_csv(join(IN, 'misc', 'bacteria_names.tsv'), sep='\t', header=None)
-
 ## WILDCARD CONSTRAINTS
 wildcard_constraints:
-  strain="|".join(samples.index)
+  strain="|".join(samples.index),
+  organism = '|'.join(organisms['clean_name'])
 
 # ===========================
 
@@ -84,7 +84,8 @@ rule all:
         #expand(join(OUT, 'go_enrich', '{amoeba}_enrich.txt'), amoeba="Neff"),
         join(OUT, 'plots', 'assembly_radars.svg'),
         join(OUT, 'plots', 'gene_families_venn.svg'),
-        join(OUT, 'orthofinder', 'blast', 'similarity_profile_bact.svg')
+        join(OUT, 'orthofinder_blast', 'similarity_profile_bact.svg'),
+        join(OUT, 'plots', 'acastellanii_quast_report.pdf')
 
 
 include: 'rules/00_annot_stats.smk'

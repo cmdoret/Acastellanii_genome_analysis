@@ -2,5 +2,5 @@ out_dir  : 'data/out'
 tmp_dir  : 'data/tmp'
 in_dir : 'data/input'
 samples  : 'samples.tsv'
-compare_species : 'data/input/misc/amoeba.tsv'
+compare_species : 'data/input/misc/organisms.tsv'
 n_cpus : 12
