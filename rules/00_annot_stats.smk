@@ -49,7 +49,7 @@ rule plot_assembly:
 
 rule quast_report:
   input: expand(join(TMP, 'renamed', '{strain}_genome.fa'), strain=samples.strain)
-  output: join(OUT, 'plots', 'acastellanii_quast_report.pdf')
+  output: directory(join(OUT, 'plots', 'acastellanii_quast_report'))
   params:
     ref_fa = join(IN, 'genomes', 'NEFF_v1.fa'),
     ref_gff = join(IN, 'annotations', 'NEFF_v1.43.gff')

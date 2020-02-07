@@ -85,7 +85,7 @@ rule all:
         join(OUT, 'plots', 'assembly_radars.svg'),
         join(OUT, 'plots', 'gene_families_venn.svg'),
         join(OUT, 'orthofinder_blast', 'similarity_profile_bact.svg'),
-        join(OUT, 'plots', 'acastellanii_quast_report.pdf')
+        (join(OUT, 'plots', 'acastellanii_quast_report'))
 
 
 include: 'rules/00_annot_stats.smk'
