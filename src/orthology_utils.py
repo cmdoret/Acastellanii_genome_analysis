@@ -88,3 +88,4 @@ def get_oma_hog(seq):
         # HOG taxonomic levels of the target go from finest to largest
         organisms = best_target.hog_levels
     return organisms
+

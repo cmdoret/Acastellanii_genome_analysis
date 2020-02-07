@@ -2,26 +2,29 @@
 
 # 00 Download all protein sequences from groups of interest
 rule fetch_proteomes:
-    output: directory(join(OUT, 'proteomes'))
+    output: join(OUT, 'proteomes', '{organism}_raw.fa')
     params:
         org = organisms
     run:
-        os.makedirs(output[0])
-        n_orgs = params['org'].shape[0]
-        for num_dl, org_row in enumerate(params['org'].iterrows()):
-            organism = org_row[1][1]
-            print(organism)
-            mu.progbar(num_dl, n_orgs, "Downloading proteomes")
-            time.sleep(0.1) # Do not spam NCBI :)
-            proteome = fu.name_to_proteins(organism, email=email, filters=" AND refseq[filter]")
-            fname = organism.lower().replace(" ", "_")
-            try:
-                print(f"Writing {proteome.count('>')} proteins for {organism}.")
-                with open(join(output[0], fname + ".fa"), 'w') as outf:
-                    outf.write(proteome)
-            except TypeError:
-                print(f"No proteome found for {organism[0]}")
-                pass
+        org_df = params['org']
+        organism = org_df.loc[org_df['clean_name'] == f'{wildcards.organism}', 'name']
+        time.sleep(0.1) # Do not spam NCBI :)
+        proteome = fu.name_to_proteins(organism, email=email, filters=" AND refseq[filter]")
+        try:
+            print(f"Writing {proteome.count('>')} proteins for {organism}.")
+            with open(output[0], 'w') as outf:
+                outf.write(proteome)
+        except TypeError:
+            print(f"No proteome found for {organism[0]}")
+            pass
+
+# Remove redundant (99% identical) proteins from each proteome
+rule cdhit_proteomes:
+  input: join(OUT, 'proteomes', '{organism}_raw.fa')
+  output: join(OUT, 'proteomes', '{organism}.fa')
+  conda: '../envs/cdhit.yaml'
+  shell: 'cd-hit -i {input} -o {output} -c 0.99 -M 0'
+
 # Download bacterial and viral genomes from interesting species
 #rule fetch_genomes:
 #    input:  join(IN, 'misc', '{group}_names.tsv')

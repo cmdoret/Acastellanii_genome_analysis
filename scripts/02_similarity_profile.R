@@ -7,8 +7,12 @@ library(ggpubr)
 
 args <- commandArgs(trailingOnly=T)
 
-target <- read_tsv(args[1], col_names=F)
-background <- read_tsv(args[2], col_names=F)
+target <- read_tsv(args[1], col_names=F) %>%
+    group_by(X1) %>%
+    filter(X3 == max(X3))
+background <- read_tsv(args[2], col_names=F) %>%
+    group_by(X1) %>%
+    filter(X3 == max(X3))
 out_figure <- args[3]
 
 target$gene_group <- paste0('A. castellanii-specific (', nrow(target), ")")
