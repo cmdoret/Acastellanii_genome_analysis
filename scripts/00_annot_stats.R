@@ -2,7 +2,11 @@
 # Usage: annots_stats input.gff output.pdf
 # cmdoret, 20190509
 
-library(tidyverse)
+library(readr)
+library(stringr)
+library(ggplot2)
+library(dplyr)
+library(tidyr)
 library(gridExtra)
 args <- commandArgs(trailingOnly=TRUE)
 

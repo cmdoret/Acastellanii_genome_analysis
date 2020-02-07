@@ -34,7 +34,7 @@ rule Neff_v1_annot_stats:
     shell: "Rscript scripts/00_annot_stats.R {input} {output}"
 
 # 00b Visualise assembly stats
-rule radar_plot_assembly:
+rule plot_assembly:
     input: expand(join(TMP, 'renamed', '{strain}_genome.fa'), strain=samples.strain)
     output: join(OUT, 'plots', 'assembly_radars.svg')
     params:
@@ -44,7 +44,7 @@ rule radar_plot_assembly:
     shell:
         """
         assembly-stats -t {input} {params.neff_v1} > {params.assembly_tbl}
-        Rscript scripts/00_radar_assembly_stats.R {params.assembly_tbl} {output}
+        Rscript scripts/00_assembly_stats.R {params.assembly_tbl} {output}
         """
 
 rule quast_report:
