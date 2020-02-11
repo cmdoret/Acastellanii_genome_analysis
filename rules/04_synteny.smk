@@ -47,21 +47,29 @@ rule mcscanx_amoeba:
 
 # 09 Generate circos plot and required inputs
 # Note this requires circos-tools, which is distributed separately from circos
+rule prep_circos:
+    input:
+        ref = join(TMP, 'merged', 'genome.fa'),
+        mcscx_flag = join(OUT, 'MCScanX', 'MCScanX.done')
+    output: join(IN, 'misc', 'circos_conf', 'mcsx.txt')
+    params:
+        mcsx_prefix = join(OUT, 'MCScanX', 'MCScanX_in'),
+        circos_dir = join(IN, 'misc', 'circos_conf')
+    shell: "bash scripts/04_gen_circos_files.sh {input.ref} {params.mcsx_prefix} {params.circos_dir}"
 rule circos:
     input:
         ref = join(TMP, 'merged', 'genome.fa'),
-        candidates = join(OUT, 'HGT_candidates.txt'),
-        mcscx_flag = join(OUT, 'MCScanX', 'MCScanX.done')
+        mcsx = join(IN, 'misc', 'circos_conf', 'mcsx.txt')
+        #candidates = join(OUT, 'HGT_candidates.txt'),
     output:
         karyotype = join(OUT, 'plots', 'circos.svg')
     params:
-        mcsx_prefix = join(OUT, 'MCScanX', 'MCScanX_in'),
         circos_dir = join(IN, 'misc', 'circos_conf')
     conda: '../envs/circos.yaml'
     shell:
         """
-        bash scripts/04_gen_circos_files.sh {input.ref} {params.mcsx_prefix} {params.circos_dir}
+        
         bundlelinks -strict -min_bundle_size 1000 -max_gap 1000 \
-                    -links {params.circos_dir}/mcsx.txt > {params.circos_dir}/bundles.txt
-        circos -conf {CIRCOS}/circos.conf -outputfile {output}
+                    -links {input.mcsx} | sed 's/lgrey=$//' > {params.circos_dir}/bundles.txt
+        circos -conf {params.circos_dir}/circos.conf -outputfile {output}
         """
