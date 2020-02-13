@@ -1,10 +1,13 @@
 # Rules to fetch resources and data from online sources
 
 # 00 Download all protein sequences from groups of interest
+# Note it takes for threads, but only uses 1 in practice. This is to limit the
+# number of instances running (e.g. 3 on 12 threads and avoid spamming ncbi
 rule fetch_proteomes:
     output: join(OUT, 'proteomes', '{organism}_raw.fa')
     params:
         org = organisms
+    threads: 4
     run:
         org_df = params['org']
         organism = org_df.loc[org_df['clean_name'] == f'{wildcards.organism}', 'name']
