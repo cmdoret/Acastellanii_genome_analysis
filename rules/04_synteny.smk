@@ -56,10 +56,28 @@ rule prep_circos:
         mcsx_prefix = join(OUT, 'MCScanX', 'MCScanX_in'),
         circos_dir = join(IN, 'misc', 'circos_conf')
     shell: "bash scripts/04_gen_circos_files.sh {input.ref} {params.mcsx_prefix} {params.circos_dir}"
+
+# Filter out links that involve chromosomes absent from karyotype (e.g. too short)
+rule filter_links:
+    input: join(IN, 'misc', 'circos_conf', 'mcsx.txt')
+    output: join(IN, 'misc', 'circos_conf', 'mcsx_filtered.txt')
+    params:
+        circos_dir = join(IN, 'misc', 'circos_conf')
+    run:
+        karyo = pd.read_csv(join(params['circos_dir'], 'karyotype.txt'), sep=' ', header=None)
+        chroms = list(karyo.iloc[:, 2])
+        links = pd.read_csv(input[0], sep=' ', header=None,
+            names=['c1', 's1', 'e1', 'c2', 's2', 'e2', 'col']
+        )
+        filtered = links.loc[(np.isin(links.c1,chroms)) & (np.isin(links.c2, chroms)), :]
+        filtered.to_csv(output[0], sep=' ',header=None, index=False)
+
+
+
 rule circos:
     input:
         ref = join(TMP, 'merged', 'genome.fa'),
-        mcsx = join(IN, 'misc', 'circos_conf', 'mcsx.txt')
+        mcsx = join(IN, 'misc', 'circos_conf', 'mcsx_filtered.txt')
         #candidates = join(OUT, 'HGT_candidates.txt'),
     output:
         karyotype = join(OUT, 'plots', 'circos.svg')
@@ -68,8 +86,7 @@ rule circos:
     conda: '../envs/circos.yaml'
     shell:
         """
-        
-        bundlelinks -strict -min_bundle_size 1000 -max_gap 1000 \
+        bundlelinks -strict -min_bundle_size 1000 -max_gap 10000 \
                     -links {input.mcsx} | sed 's/lgrey=$//' > {params.circos_dir}/bundles.txt
         circos -conf {params.circos_dir}/circos.conf -outputfile {output}
         """

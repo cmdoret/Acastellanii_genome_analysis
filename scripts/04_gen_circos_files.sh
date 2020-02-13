@@ -20,6 +20,12 @@ awk '/^>/ {if (seqlen){print seqlen}; printf "%s ",$0;seqlen=0;next;}
   tr -d '>' \
   >${CIR_DIR}/karyotype.txt
 
+# Aesthetics, can comment out: Make Neff scaffolds reverse orderd. Looks better
+# for 2-strain comparison
+grep "Neff_scaffold" ${CIR_DIR}/karyotype.txt > ${CIR_DIR}/neff_karyo.txt
+grep -v "Neff_scaffold" ${CIR_DIR}/karyotype.txt | sort -rV > ${CIR_DIR}/other_karyo.txt
+cat ${CIR_DIR}/neff_karyo.txt ${CIR_DIR}/other_karyo.txt > ${CIR_DIR}/karyotype.txt
+rm  ${CIR_DIR}/neff_karyo.txt ${CIR_DIR}/other_karyo.txt
 # Candidate genes
 #tail -n +2  $CAND |
 #  awk '{print $1,$2,$3}' \
@@ -51,7 +57,7 @@ do
      END{
        if (N1 < 1 || N2 < 1) {exit 1}
        else {print c1,s1,e1,c2,s2,e2,attr}}' "$MCSX.gff"
-  echo "$n_done / $n_genes         \r" >2
+  echo -ne "  $n_done / $n_genes         \r" 1>&2
   (( n_done++ ))
   # Convert gene IDs to coordinates
 done < <(grep -v "^#" "$MCSX.collinearity" | tr -d ' ' | tr '\t' ' ' | cut -d$' ' -f2,3)  \
