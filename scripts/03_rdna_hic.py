@@ -38,7 +38,7 @@ bins = c.bins()
 chroms = c.chroms()[:]
 
 # Remove chromosomes that are absent from cool
-#gff = gff.loc[np.isin(gff.seqname, chroms['name']), :]
+gff = gff.loc[np.isin(gff.seqname, chroms['name']), :]
 
 ## TRANSFORM
 
