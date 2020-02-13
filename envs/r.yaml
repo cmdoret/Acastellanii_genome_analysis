@@ -7,3 +7,4 @@ channels:
 dependencies:
   - r-tidyverse
   - r-ggpubr
+  - r-patchwork
