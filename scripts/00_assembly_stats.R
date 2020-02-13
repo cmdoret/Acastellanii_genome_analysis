@@ -3,31 +3,73 @@
 # cmdoret, 20190607
 
 library(ggplot2)
+library(patchwork)
 library(readr)
 library(tidyr)
 library(dplyr)
-library(scales)
 library(tools)
+library(stringr)
 
 
 args <- commandArgs(trailingOnly=T)
 
-minscale <- function(x){s = scale(x); return(s + abs(min(s)))}
-assemblies <- read_tsv(args[1]) %>%
+# No need to scale, now
+#library(scales)
+# minscale <- function(x){s = scale(x); return(s + abs(min(s)))}
+#  mutate_at(vars(-assembly), minscale ) %>%
+
+asb <- read_tsv(args[1]) %>%
   rename(n_contigs=number, assembly=filename) %>%
   mutate(assembly=file_path_sans_ext(basename(assembly))) %>%
-  mutate_at(vars(-assembly), minscale ) %>%
-  select(assembly, total_length, n_contigs, N50, N70, N90, N70n, N90n) %>%
-  pivot_longer(-assembly, 'metric')
+  select(assembly, total_length, n_contigs, N50, N70, N90, N50n, N70n, N90n) %>%
+  pivot_longer(-assembly, 'metric') %>%
+  mutate(assembly = gsub("_genome", "", assembly))
 
 svg(args[2])
-#ggRadar(assemblies, aes(group = assembly), 
-#             rescale=F, legend.position = "none", scales="fixed",
-#             size = 1, interactive = FALSE, use.label = TRUE, ylim=c(-1., 1.)) +
-#  facet_wrap(~assembly) + 
-#  ggtitle("Acanthamoeba castellanii Neff: Genome assemblies stats") + 
-#  theme_bw()
-ggplot(data=assemblies, aes(x=assembly, y=value, fill=assembly)) +
-  geom_bar(stat='identity') +
-  facet_wrap(~metric)
+
+len_asb <- ggplot(
+             data=asb %>% filter(metric == 'total_length'),
+             aes(x=assembly, y=value, fill=assembly)
+           ) +
+        geom_bar(stat='identity') +
+        theme_minimal() +
+        ylab("Length") +
+        xlab("") +
+        ggtitle("Assembly length") +
+        theme(legend.position="none")
+
+num_tigs <- ggplot(
+             data=asb %>% filter(metric == 'n_contigs'),
+             aes(x=assembly, y=value, fill=assembly)
+            ) +
+        geom_bar(stat='identity') +
+        theme_minimal() +
+        ylab("# contigs") +
+        xlab("") +
+        ggtitle("Total number of contigs") +
+        theme(legend.position="none")
+
+Nxx <- ggplot(
+         data=asb %>% filter(str_detect(metric, '0$')),
+         aes(x=assembly, y=value, fill=assembly)
+       ) +
+       geom_bar(stat='identity') +
+       facet_wrap(~metric) +
+       theme_minimal() +
+       xlab("") +
+       ylab("Length") +
+       theme(legend.position="none")
+   
+Nxxn <- ggplot(
+          data=asb %>% filter(str_detect(metric, 'n$')),
+          aes(x=assembly, y=value, fill=assembly)
+        ) +
+        geom_bar(stat='identity') +
+        xlab("") +
+        ylab("# contigs") +
+        theme_minimal() +
+        facet_wrap(~metric)
+
+(len_asb + num_tigs + plot_spacer()) / (Nxx) / (Nxxn)
+
 dev.off()
