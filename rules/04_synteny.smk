@@ -86,7 +86,7 @@ rule circos:
     conda: '../envs/circos.yaml'
     shell:
         """
-        bundlelinks -strict -min_bundle_size 1000 -max_gap 10000 \
+        bundlelinks -strict -min_bundle_size 1000 -max_gap 50000 \
                     -links {input.mcsx} | sed 's/lgrey=$//' > {params.circos_dir}/bundles.txt
         circos -conf {params.circos_dir}/circos.conf -outputfile {output}
         """

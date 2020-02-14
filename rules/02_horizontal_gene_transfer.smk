@@ -211,6 +211,12 @@ rule compute_similarity_profile:
     conda: "../envs/r.yaml"
     shell: "Rscript scripts/02_similarity_profile.R {input.hgt_sim} {input.bg_sim} {output}"
 
+
+rule compute_exon_per_gene:
+    input:
+    output:
+    shell:
+
 # TODO: filter Ac_specifig genes based on similarity with bacteria
 rule select_HGT_candidates:
     input: join(OUT, 'specific_genes', 'presence_compact.tsv')
