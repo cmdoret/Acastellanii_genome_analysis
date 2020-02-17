@@ -212,13 +212,12 @@ rule compute_similarity_profile:
     shell: "Rscript scripts/02_similarity_profile.R {input.hgt_sim} {input.bg_sim} {output}"
 
 
-rule compute_exon_per_gene:
+# Validation of HGT candidates using functional genomics
+rule compare_HGT_candidates:
     input:
-    output:
-    shell:
-
-# TODO: filter Ac_specifig genes based on similarity with bacteria
-rule select_HGT_candidates:
-    input: join(OUT, 'specific_genes', 'presence_compact.tsv')
-    output: join(OUT, 'HGT_candidates.txt')
-    shell: "cp {input} {output}"
+        pres = join(OUT, 'specific_genes', 'presence_compact.tsv'),
+        anno = expand(join(OUT, 'stats', '{strain}_annot_stats.tsv'), strain=["C3", "Neff"])
+    params:
+        og_to_gene = join(OUT, 'orthofinder', 'Results_amoeba', 'Orthogroups', 'Orthogroups.txt')
+    output: join(OUT, 'plots', 'hgt_stats.svg')
+    script: "../scripts/02_validate_hgt.py"
