@@ -69,7 +69,7 @@ CIRCOS = join(IN, 'misc', 'circos_conf')
 
 ## WILDCARD CONSTRAINTS
 wildcard_constraints:
-  strain="|".join(samples.index),
+  strain="|".join(samples.index + "NEFF_v1"),
   organism = '|'.join(organisms['clean_name'])
 
 # ===========================
@@ -85,7 +85,9 @@ rule all:
         join(OUT, 'plots', 'assembly_radars.svg'),
         join(OUT, 'plots', 'gene_families_venn.svg'),
         join(OUT, 'orthofinder_blast', 'similarity_profile_bact.svg'),
-        (join(OUT, 'plots', 'acastellanii_quast_report'))
+        join(OUT, 'plots', 'acastellanii_quast_report'),
+        expand(join(OUT, 'stats', '{strain}_annot_stats.tsv'), strain=samples.strain),
+        join(OUT, 'plots', 'hgt_stats.svg')
 
 
 include: 'rules/00_annot_stats.smk'

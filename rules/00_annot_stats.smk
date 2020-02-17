@@ -22,16 +22,22 @@ rule rename_entries:
 
 # 00 General annotations stats from amoeba GFF files
 rule amoeba_annot_stats:
-    input: join(TMP, 'renamed', '{strain}_annotations.gff')
-    output: join(OUT, 'plots', '{strain}_annot_stats.svg')
+    input: join(TMP, 'renamed', '{amoeba}_annotations.gff')
+    output:
+        tbl = join(OUT, 'stats', '{amoeba}_annot_stats.tsv'),
+        plt = join(OUT, 'plots', '{amoeba}_annot_stats.svg')
     conda: '../envs/r.yaml'
-    shell: "Rscript scripts/00_annot_stats.R {input} {output}"
+    shell: "Rscript scripts/00_annot_stats.R {input} {output.tbl} {output.plt}"
+
 
 rule Neff_v1_annot_stats:
     input: join(IN, 'annotations', 'NEFF_v1.43.gff')
-    output: join(OUT, 'plots', 'NEFF_v1_annot_stats.svg')
+    output:
+        tbl = join(OUT, 'stats', 'NEFF_v1_annot_stats.tsv'),
+        plt = join(OUT, 'plots', 'NEFF_v1_annot_stats.svg')
     conda: '../envs/r.yaml'
-    shell: "Rscript scripts/00_annot_stats.R {input} {output}"
+    shell: "Rscript scripts/00_annot_stats.R {input} {output.tbl} {output.plt}"
+
 
 # 00b Visualise assembly stats
 rule plot_assembly:

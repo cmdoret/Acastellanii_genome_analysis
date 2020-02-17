@@ -12,25 +12,39 @@ args <- commandArgs(trailingOnly=TRUE)
 
 ### GET ARGS ###
 in_gff <- args[1]
-out_plot <- args[2]
+out_tbl <- args[2]
+out_plot <- args[3]
 
 ### LOAD DATA ###
 gff <- read_tsv(in_gff, comment="#", col_names=F)
 colnames(gff) <- c("chrom", "source", "type", "start", "end", "score", "strand", "phase", "attributes")
 gff <- gff %>% filter(type %in% c("mRNA", "CDS", "gene", "exon"))
 
+### Clean data
+gff <- gff %>% mutate(attributes=gsub("Parent=", "ID=", attributes)) %>%
+    mutate(ID=str_extract(attributes, 'ID=[^;]*')) %>%
+    mutate(ID=gsub("=[a-zA-Z]{1,}:", "=", ID)) %>%
+    mutate(ID=sapply(ID, function(x){str_split(x,regex('[=-]'))[[1]][2]}))
+
 ### COMPUTE STATS ###
+
+gff_gene_len <- gff %>%
+    filter(type == 'gene') %>%
+    mutate(gene_len = end - start)
 
 # N exon / gene
 gff_exons <- gff %>% 
     filter(type != 'gene') %>%
-    mutate(attributes=gsub("Parent=", "ID=", attributes)) %>%
-    mutate(ID=str_extract(attributes, 'ID=[^;]*')) %>%
-    mutate(ID=gsub("=[a-zA-Z]{1,}:", "=", ID)) %>%
-    mutate(ID=sapply(ID, function(x){str_split(x,regex('[=-]'))[[1]][2]})) %>%
     group_by(ID) %>%
     mutate(n_exon=sum(type == 'exon')) %>%
-    filter(type == 'mRNA')
+    filter(type == 'mRNA') %>% 
+    mutate(mrna_len = end - start)
+
+# Combine informations and reorder columns
+gff_stats <- gff_gene_len %>%
+    select(ID, gene_len) %>%
+    inner_join(gff_exons, by='ID') %>%
+    select(ID, chrom, start, end, type, strand, n_exon, gene_len, mrna_len, attributes)
 
 
 ### VISUALISE ###
@@ -76,10 +90,9 @@ exon_per_gene <- ggplot(data=gff_exons, aes(x=n_exon, fill=n_exon_quant)) +
     xlab("Exons per genes") +
     scale_x_continuous(limits = c(-0, 100))
 
-
 ### SAVE OUTPUT ###
 svg(out_plot)
 grid.arrange(feature_len, exon_per_gene)
 dev.off()
-
+write_tsv(gff_stats, out_tbl)
 
