@@ -57,7 +57,6 @@ organisms['clean_name'] = organisms['name'].apply(lambda n: n.lower().replace(" 
 email = 'cmatthey@pasteur.fr'
 # email = input("Please enter your email to download refseq genomes.")
 
-
 # ===========================
 # Set file paths if needed
 OUT = config['out_dir']
@@ -77,17 +76,21 @@ wildcard_constraints:
 rule all:
     input:
         join(OUT, 'GLOOME'),
-        expand(join(OUT, 'plots', '{strain}_annot_stats.svg'), strain=["Neff", "C3", "NEFF_v1"]),
+        expand(join(OUT, 'plots', '{strain}_annot_stats.svg'), strain=["Neff", "C3"]),
+        join(OUT, 'plots', 'NEFF_v1_oldannot_stats.svg'),
         expand(join(OUT, 'plots', 'rdna_mat_{strain}.svg'), strain=samples.strain),
         join(OUT, "MCScanX", "MCScanX.done"),
         join(OUT, 'plots', 'circos.svg'),
         #expand(join(OUT, 'go_enrich', '{amoeba}_enrich.txt'), amoeba="Neff"),
         join(OUT, 'plots', 'assembly_radars.svg'),
         join(OUT, 'plots', 'gene_families_venn.svg'),
-        join(OUT, 'orthofinder_blast', 'similarity_profile_bact.svg'),
+        #join(OUT, 'orthofinder_blast', 'similarity_profile_bact.svg'),
         join(OUT, 'plots', 'acastellanii_quast_report'),
         expand(join(OUT, 'stats', '{strain}_annot_stats.tsv'), strain=samples.strain),
-        join(OUT, 'plots', 'hgt_stats.svg')
+        join(OUT, 'plots', 'hgt_stats.svg'),
+        join(OUT, 'figures', 'comp_hgt_neff_v1_v2.svg')
+
+
 
 
 include: 'rules/00_annot_stats.smk'

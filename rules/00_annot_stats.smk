@@ -2,17 +2,20 @@
 # collisions between strains.
 rule rename_entries:
     input:
-        genome = lambda w: samples.genome[f'{w.strain}'],
-        proteome = lambda w: samples.proteome[f'{w.strain}'],
-        annotations = lambda w: samples.annotations[f'{w.strain}']
+        genome = lambda w: samples.genome[w.strain],
+        cds = lambda w: samples.cds[w.strain],
+        proteome = lambda w: samples.proteome[w.strain],
+        annotations = lambda w: samples.annotations[w.strain]
     output:
         genome = join(TMP, 'renamed', '{strain}_genome.fa'),
+        cds = join(TMP, 'renamed', '{strain}_cds.fa'),
         proteome = join(TMP, 'renamed', '{strain}_proteome.fa'),
         annotations = join(TMP, 'renamed', '{strain}_annotations.gff')
     shell:
         """
         st={wildcards.strain}
         sed 's/^>\(.*\)/>'"$st"'_\\1/' {input.genome} > {output.genome}
+        sed 's/^>\(.*\)/>'"$st"'_\\1/' {input.cds} > {output.cds}
         sed 's/^>\(.*\)/>'"$st"'_\\1/' {input.proteome} > {output.proteome}
         sed 's/^\([^#]\)/'"$st"'_\\1/' {input.annotations} |
             sed 's/ID=/ID='"$st"'_/' | 
@@ -33,8 +36,8 @@ rule amoeba_annot_stats:
 rule Neff_v1_annot_stats:
     input: join(IN, 'annotations', 'NEFF_v1.43.gff')
     output:
-        tbl = join(OUT, 'stats', 'NEFF_v1_annot_stats.tsv'),
-        plt = join(OUT, 'plots', 'NEFF_v1_annot_stats.svg')
+        tbl = join(OUT, 'stats', 'NEFF_v1_oldannot_stats.tsv'),
+        plt = join(OUT, 'plots', 'NEFF_v1_oldannot_stats.svg')
     conda: '../envs/r.yaml'
     shell: "Rscript scripts/00_annot_stats.R {input} {output.tbl} {output.plt}"
 

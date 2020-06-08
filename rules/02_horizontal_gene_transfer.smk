@@ -1,5 +1,15 @@
 
-# Build pangenome and protein tree from amoeba and bacteria
+# Retrieve HGT sequences from Neff v1 publication and translate them
+rule get_v1_hgt:
+    output: join(OUT, 'hgt', 'NEFF_v1_hgt_cds.fa')
+    params:
+        hgt_ids = join(IN, 'misc', 'NEFF_v1_HGT.tsv'),
+        cds = join(IN, 'cds', 'NEFF_v1.43.fa')
+    conda: '../envs/seqkit.yaml'
+    shell: "seqkit grep -r -f {params.hgt_ids} {params.cds} | seqkit translate > {output}"
+
+# Build pangenome and protein tree from amoeba and bacteria, also including HGT inferred
+# in the first genome paper
 rule orthofinder:
     input: 
         org_proteomes = expand(
@@ -9,8 +19,9 @@ rule orthofinder:
         ac_proteomes = expand(
             join(TMP, 'renamed', '{strain}_proteome.fa'),
             strain=samples.strain
-        )
-    output: directory(join(OUT, 'orthofinder'))
+        ),
+        hgt_neff_v1 = join(OUT, 'hgt', 'NEFF_v1_hgt_cds.fa')
+    output: directory(join(OUT, 'hgt', 'orthofinder'))
     threads: NCPUS
     params:
       orthofinder_dir = join(TMP, 'orthofinder')
@@ -19,12 +30,13 @@ rule orthofinder:
         # Move all organisms proteomes to orthofinder workdir
         mkdir -p {params.orthofinder_dir}
         cp {input.org_proteomes} {params.orthofinder_dir}
-        # Move Ac proteomes as well, but trim _proteome from filename
+        # Move Ac proteomes as well, but trim proteome from filename
         for strain in {input.ac_proteomes}; do
             fname=$(basename $strain)
             new_fname="${{fname/_proteome/}}"
             cp $strain "{params.orthofinder_dir}/$new_fname"
         done
+        cp "{input.hgt_neff_v1}" "{params.orthofinder_dir}/"
         orthofinder -f {params.orthofinder_dir} \
                     -o {output} \
                     -S diamond \
@@ -34,7 +46,7 @@ rule orthofinder:
 
 # Get presence / absence info into GLOOME compatible format
 rule format_presence_mat:
-    input: join(OUT, 'orthofinder')
+    input: join(OUT, 'hgt', 'orthofinder')
     output:
         matrix = join(TMP, 'GLOOME', 'gene_matrix.fa'),
         tree = join(TMP, 'GLOOME', 'tree.newick')
@@ -66,7 +78,7 @@ rule GLOOME:
 
 # Retrieve A. castellanii-specific + bact genes and strain specific genes
 rule acastellanii_specific:
-    input: join(OUT, 'orthofinder')
+    input: join(OUT, 'hgt', 'orthofinder')
     output: 
         venn = join(OUT, 'plots', 'gene_families_venn.svg'),
         pres_mat = join(OUT, 'specific_genes', 'presence_matrix.tsv'),
@@ -76,7 +88,6 @@ rule acastellanii_specific:
         amoeba = organisms.clean_name[organisms['type'] == 'amoeba'],
         bact = organisms.clean_name[organisms['type'] == 'bacteria']
     run:
-        mpl.use('TkAgg')
         ortho_file = join(input[0], "Results_amoeba", "Orthogroups", "Orthogroups.tsv")
         ortho = pd.read_csv(ortho_file, sep='\t')
         # Get gene families absent in all of A. castellanii strains
@@ -100,15 +111,26 @@ rule acastellanii_specific:
         amoeba_pres = any_pres(amoeba_df)
         amoeba_abs = ~amoeba_pres
         # Record  genes found only in amoeba but not bacteria
+        # Note: hgt events inferred in Clarke et al. also included for comparison)
         vdf = pd.DataFrame({
             'neff'  : ~st_abs['Neff'],
+            'NEFF_v1_hgt_cds'  : ~get_absent(ortho.NEFF_v1_hgt_cds),
             'c3'    : ~st_abs['C3'],
             'ac'    : ~ac_abs,
             'bact'  : bact_pres,
             'amoeba': amoeba_pres,
         })
         vdf.index = ortho.Orthogroup
+        
         vdf.astype(int).to_csv(output['pres_compact'], sep='\t', index=True, header=True)
+
+rule plot_orthogroups_venn:
+    input: 
+        pres_compact = join(OUT, 'specific_genes', 'presence_compact.tsv')
+    output:
+        venn = join(OUT, 'plots', 'gene_families_venn.svg')
+    run:
+        mpl.use('TkAgg')
         # Make Venn diagram. sets are A, B, AB, C, AC, BC, ABC
         fig, ax = plt.subplots(1, 2)
         venn3(
@@ -140,7 +162,7 @@ rule acastellanii_specific:
 rule get_spec_seq:
     input:
         pres = join(OUT, 'specific_genes', 'presence_compact.tsv'),
-        orthofinder_dir = join(OUT, 'orthofinder')
+        orthofinder_dir = join(OUT, 'hgt', 'orthofinder')
     output:
         join(TMP, 'merged', '{group}_orthogroup_seq.fa')
     run:
@@ -212,12 +234,58 @@ rule compute_similarity_profile:
     shell: "Rscript scripts/02_similarity_profile.R {input.hgt_sim} {input.bg_sim} {output}"
 
 
-# Validation of HGT candidates using functional genomics
+# Descriptive statistics of HGT candidates
 rule compare_HGT_candidates:
     input:
         pres = join(OUT, 'specific_genes', 'presence_compact.tsv'),
         anno = expand(join(OUT, 'stats', '{strain}_annot_stats.tsv'), strain=["C3", "Neff"])
     params:
-        og_to_gene = join(OUT, 'orthofinder', 'Results_amoeba', 'Orthogroups', 'Orthogroups.txt')
-    output: join(OUT, 'plots', 'hgt_stats.svg')
+        og_to_gene = join(OUT, 'hgt', 'orthofinder', 'Results_amoeba', 'Orthogroups', 'Orthogroups.txt')
+    output:
+        plt = join(OUT, 'plots', 'hgt_stats.svg'),
+        tbl = join(OUT, 'hgt', 'hgt_stats.tsv')
     script: "../scripts/02_validate_hgt.py"
+
+
+rule get_new_hgt:
+    input:
+        tbl = join(OUT, 'hgt', 'hgt_stats.tsv'),
+        fa = expand(join(TMP, 'renamed', '{strain}_cds.fa'), strain=samples.index)
+    output: join(OUT, 'hgt', 'ac_hgt_cds.fa')
+    params:
+        hgt_names = temp(join(TMP, 'hgt', 'hgt_names.tsv')),
+        all_cds = temp(join(TMP, 'hgt', 'all_cds.fa'))
+    conda: '../envs/seqkit.yaml'
+    shell:
+        """
+        mkdir -p $(dirname {params.all_cds})
+        # Find all proteins which match HGT names in the table
+        # HGT names are those where the last column (hgt) is equal to 1
+        grep "1$" {input.tbl} | cut -f1 > {params.hgt_names}
+        cat {input.fa} > {params.all_cds}
+        seqkit grep -r -f {params.hgt_names} {params.all_cds} > {output}
+        rm {params.hgt_names} {params.all_cds}
+        """
+
+rule compare_orthogroups_v1_v2_hgt:
+    input:
+        v1_orthofinder = join(OUT, 'hgt', 'orthofinder'),
+        v2_og = join(OUT, 'specific_genes', 'presence_compact.tsv')
+    output:
+        join(OUT, 'figures', 'comp_hgt_neff_v1_v2.svg')
+    run:
+        v1_og = pd.read_csv(input['v1_orthofinder']+'/Results_amoeba/Orthogroups/Orthogroups.tsv', sep='\t')
+        v1_og_set = set(v1_og.Orthogroup[~v1_og.NEFF_v1_hgt_cds.isnull()])
+        v2_og = pd.read_csv(input['v2_og'], sep='\t')
+        v2_og_set = set(v2_og.Orthogroup[(v2_og.ac==1) & (v2_og.bact==1) & (v2_og.amoeba==0)])
+        plt.title("Xenolog orthogroups comparison")
+        venn2(
+            subsets = (
+                len(v1_og_set - v2_og_set),
+                len(v1_og_set.intersection(v2_og_set)),
+                len(v2_og_set - v1_og_set),
+            ),
+        set_labels = ("Neff_v1", "Neff_v2"),
+        )
+        plt.savefig(output)
+

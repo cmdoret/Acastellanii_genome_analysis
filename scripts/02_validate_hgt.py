@@ -43,16 +43,32 @@ anno_tmp = anno.copy()
 anno_tmp["n_exon"] = st.zscore(anno_tmp["n_exon"], nan_policy="omit")
 anno_tmp["gene_len"] = st.zscore(anno_tmp["gene_len"], nan_policy="omit")
 long_anno = anno_tmp[["ID", "hgt", "gene_len", "n_exon"]].melt(["hgt", "ID"])
+fig, axes = plt.subplots(1, 2, figsize=(8, 10))
 sns.violinplot(
-    data=long_anno,
-    x="variable",
+    data=long_anno.loc[long_anno['variable'] == 'n_exon', :],
+    ax=axes[0],
+    x='variable',
+    y="value",
+    inner="quartiles",
+    hue='hgt',
+    split=True,
+)
+axes[0].set_ylabel("Number of exons")
+axes[0].set_title(
+    "Number of exons in A. castellanii HGT\ncandidates versus background genes"
+)
+sns.violinplot(
+    data=long_anno.loc[long_anno['variable'] == 'gene_len' ,:],
+    ax=axes[1],
+    x='variable',
     y="value",
     inner="quartiles",
     split=True,
-    hue="hgt",
+    hue='hgt',
 )
-plt.ylabel("z-score")
-plt.title(
-    "Comparison of A. castellanii HGT candidates versus background genes"
+axes[1].set_ylabel("Gene length")
+axes[1].set_title(
+    "Length of A. castellanii HGT \ncandidates versus background genes"
 )
-plt.savefig(snakemake.output[0])
+plt.savefig(snakemake.output["plt"])
+anno.to_csv(snakemake.output["tbl"], index=False, sep="\t")

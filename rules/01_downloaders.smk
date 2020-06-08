@@ -25,8 +25,10 @@ rule fetch_proteomes:
 rule cdhit_proteomes:
   input: join(OUT, 'proteomes', '{organism}_raw.fa')
   output: join(OUT, 'proteomes', '{organism}.fa')
+  params:
+    sim = 0.95
   conda: '../envs/cdhit.yaml'
-  shell: 'cd-hit -i {input} -o {output} -c 0.99 -M 0'
+  shell: 'cd-hit -i {input} -o {output} -c {params.sim} -M 0'
 
 # Download bacterial and viral genomes from interesting species
 #rule fetch_genomes:
