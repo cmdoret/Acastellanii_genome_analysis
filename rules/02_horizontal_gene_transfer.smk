@@ -80,7 +80,6 @@ rule GLOOME:
 rule acastellanii_specific:
     input: join(OUT, 'hgt', 'orthofinder')
     output: 
-        venn = join(OUT, 'plots', 'gene_families_venn.svg'),
         pres_mat = join(OUT, 'specific_genes', 'presence_matrix.tsv'),
         pres_compact = join(OUT, 'specific_genes', 'presence_compact.tsv')
     params:
@@ -130,9 +129,12 @@ rule plot_orthogroups_venn:
     output:
         venn = join(OUT, 'plots', 'gene_families_venn.svg')
     run:
-        mpl.use('TkAgg')
+        mpl.use('Agg')
+        vdf = pd.read_csv(input['pres_compact'], sep='\t').drop('Orthogroup', axis=1)
+        vdf = vdf.astype(bool)
+        vdf = vdf.rename(columns={'NEFF_v1_hgt_cds': 'v1'})
         # Make Venn diagram. sets are A, B, AB, C, AC, BC, ABC
-        fig, ax = plt.subplots(1, 2)
+        fig, ax = plt.subplots(2, 2, figsize=(15, 12))
         venn3(
             subsets = (
                 len(vdf.query('    ac and not bact and not amoeba')), #A
@@ -144,7 +146,7 @@ rule plot_orthogroups_venn:
                 len(vdf.query('    ac and     bact and     amoeba')), #ABC
             ),
             set_labels = ('A. castellanii', 'Bacteria', 'Amoeba'),
-            ax=ax[0]
+            ax=ax[0, 0]
         )
         venn2(
             subsets = (
@@ -153,12 +155,35 @@ rule plot_orthogroups_venn:
                 len(vdf.query('    c3 and     neff')),
             ),
         set_labels = ("C3", "Neff"),
-        ax=ax[1]
+        ax=ax[0, 1]
+        )
+        vdf['v2'] = vdf.ac & vdf.bact & (~ vdf.amoeba)
+        venn3(
+            subsets = (
+                len(vdf.query('    v1 and not bact and not amoeba')), #A
+                len(vdf.query('not v1 and     bact and not amoeba')), #B
+                len(vdf.query('    v1 and     bact and not amoeba')), #AB
+                len(vdf.query('not v1 and not bact and     amoeba')), #C
+                len(vdf.query('    v1 and not bact and     amoeba')), #AC
+                len(vdf.query('not v1 and     bact and     amoeba')), #BC
+                len(vdf.query('    v1 and     bact and     amoeba')), #ABC
+            ),
+            set_labels = ('NEFF_v1', 'Bacteria', 'Amoeba'),
+            ax=ax[1, 0]
+        )
+        venn2(
+            subsets = (
+                len(vdf.query('    v1 and not v2')), #A
+                len(vdf.query('not v1 and     v2')), #B
+                len(vdf.query('    v1 and     v2')), #AB
+            ),
+        set_labels = ("HGT_v1", "HGT_v2"),
+        ax=ax[1, 1]
         )
         fig.savefig(output['venn'])
 
 # Retrieve sequences from orthogroups belonging to specific groups
-# for now, groups will be either hgt or background
+# for now, groups will be hgt or background
 rule get_spec_seq:
     input:
         pres = join(OUT, 'specific_genes', 'presence_compact.tsv'),
@@ -168,7 +193,7 @@ rule get_spec_seq:
     run:
         condition = {
             'hgt': 'ac and bact and not amoeba',
-            'background': 'not bact and amoeba or ac'
+            'background': '(not bact) and amoeba or ac',
         }
         # Retrieve HGT candidates (present in AC and bact,
         # but not other amoeba)
@@ -192,14 +217,15 @@ rule get_spec_seq:
         out_fa.close()
 
 
-# Filter Ac. genes from HGT candidiates or background sets
+# Filter Ac. genes in HGT candidiates or out from background set
 rule filter_ac_orthologues:
     input: join(TMP, 'merged', '{group}_orthogroup_seq.fa')
     output: join(TMP, 'merged', '{group}_orthogroup_seq_filtered.fa')
     params:
-        id_filter = "^(C3|Neff)_FUN_"
+        id_filter = "^(C3|Neff)_FUN_",
+        invert = lambda w: '-v' if w.group == 'background' else ''
     conda: '../envs/seqkit.yaml'
-    shell: "seqkit grep -r -p '{params.id_filter}' {input} > {output}"
+    shell: "seqkit grep {params.invert} -r -p '{params.id_filter}' {input} > {output}"
 
 
 # Compute similarity profile between HGT candidates and bacteria 
@@ -267,25 +293,60 @@ rule get_new_hgt:
         rm {params.hgt_names} {params.all_cds}
         """
 
-rule compare_orthogroups_v1_v2_hgt:
+# Blast v1 and v2 HGT against bacteria and amoeba backgrounds
+rule blast_v1_v2:
     input:
-        v1_orthofinder = join(OUT, 'hgt', 'orthofinder'),
-        v2_og = join(OUT, 'specific_genes', 'presence_compact.tsv')
-    output:
-        join(OUT, 'figures', 'comp_hgt_neff_v1_v2.svg')
-    run:
-        v1_og = pd.read_csv(input['v1_orthofinder']+'/Results_amoeba/Orthogroups/Orthogroups.tsv', sep='\t')
-        v1_og_set = set(v1_og.Orthogroup[~v1_og.NEFF_v1_hgt_cds.isnull()])
-        v2_og = pd.read_csv(input['v2_og'], sep='\t')
-        v2_og_set = set(v2_og.Orthogroup[(v2_og.ac==1) & (v2_og.bact==1) & (v2_og.amoeba==0)])
-        plt.title("Xenolog orthogroups comparison")
-        venn2(
-            subsets = (
-                len(v1_og_set - v2_og_set),
-                len(v1_og_set.intersection(v2_og_set)),
-                len(v2_og_set - v1_og_set),
-            ),
-        set_labels = ("Neff_v1", "Neff_v2"),
-        )
-        plt.savefig(output)
+        v2 = join(TMP, 'merged', 'hgt_orthogroup_seq_filtered.fa'),
+        v1 = join(OUT, 'hgt', 'NEFF_v1_hgt_cds.fa'),
+        amoeba = join(TMP, 'merged', 'background_orthogroup_seq_filtered.fa')
+    output: join(OUT, 'hgt', 'hgt_similarity.blast')
+    params:
+        bact_db = join(DB, 'blast', 'nr_v5', 'nr_v5'),
+        amoeba_db = join(TMP, 'amoeba_blast_db')
+    threads: NCPUS
+    singularity: 'docker://cmdoret/blast:2.9.0'
+    shell:
+        """
+        blastp -num_threads {threads} \
+               -max_target_seqs 5 \
+               -taxids 2 \
+               -db {params.bact_db} \
+               -query {input.v1} \
+               -outfmt 6 \
+            | awk -vOFS='\t' '{{print "bact","v1",$0}}' > {output} 
 
+        blastp -num_threads {threads} \
+               -max_target_seqs 5 \
+               -taxids 2 \
+               -db {params.bact_db} \
+               -query {input.v2} \
+               -outfmt 6 \
+            | awk -vOFS='\t' '{{print "bact","v2",$0}}' >> {output} 
+        
+        makeblastdb -dbtype prot -in {input.amoeba} -title amoeba -out {params.amoeba_db}
+        blastp -outfmt 6 -db {params.amoeba_db} -num_threads {threads} -query {input.v1} \
+            | awk -vOFS='\t' '{{print "amoeba","v1",$0}}' >> {output} 
+        blastp -outfmt 6 -db {params.amoeba_db} -num_threads {threads} -query {input.v2} \
+            | awk -vOFS='\t' '{{print "amoeba","v2",$0}}' >> {output} 
+
+        rm -f {params.amoeba_db}.p{{hr,in,sq}}
+        """
+
+# Visualise distribution of sequence similarity between HGT predicted in v1 and v2 
+# vs bacterial genes
+rule plot_similarity_hgt:
+    input: join(OUT, 'hgt', 'hgt_similarity.blast')
+    output: join(OUT, 'figures', 'hgt_similarity.svg')
+    run:
+        import seaborn as sns
+        sim = pd.read_csv(input[0],
+            sep='\t',
+            header=None,
+            usecols=[0, 1, 4],
+            names=['comp', 'set', 'similarity']
+        )
+        sns.violinplot(data=sim, x='comp', y='similarity', split=True, hue='set')
+        plt.savefig(output[0])
+
+
+# Extract 

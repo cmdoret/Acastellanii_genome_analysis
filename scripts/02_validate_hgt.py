@@ -40,17 +40,17 @@ anno = anno.merge(pres, on="Orthogroup", how="inner")
 st.ttest_ind(anno.n_exon[anno.hgt == 1], anno.n_exon[anno.hgt == 0]).pvalue
 anno[["hgt", "n_exon", "gene_len", "mrna_len"]].groupby("hgt").agg("mean")
 anno_tmp = anno.copy()
-anno_tmp["n_exon"] = st.zscore(anno_tmp["n_exon"], nan_policy="omit")
-anno_tmp["gene_len"] = st.zscore(anno_tmp["gene_len"], nan_policy="omit")
+# anno_tmp["n_exon"] = st.zscore(anno_tmp["n_exon"], nan_policy="omit")
+# anno_tmp["gene_len"] = st.zscore(anno_tmp["gene_len"], nan_policy="omit")
 long_anno = anno_tmp[["ID", "hgt", "gene_len", "n_exon"]].melt(["hgt", "ID"])
 fig, axes = plt.subplots(1, 2, figsize=(8, 10))
 sns.violinplot(
-    data=long_anno.loc[long_anno['variable'] == 'n_exon', :],
+    data=long_anno.loc[long_anno["variable"] == "n_exon", :],
     ax=axes[0],
-    x='variable',
+    x="variable",
     y="value",
     inner="quartiles",
-    hue='hgt',
+    hue="hgt",
     split=True,
 )
 axes[0].set_ylabel("Number of exons")
@@ -58,13 +58,13 @@ axes[0].set_title(
     "Number of exons in A. castellanii HGT\ncandidates versus background genes"
 )
 sns.violinplot(
-    data=long_anno.loc[long_anno['variable'] == 'gene_len' ,:],
+    data=long_anno.loc[long_anno["variable"] == "gene_len", :],
     ax=axes[1],
-    x='variable',
+    x="variable",
     y="value",
     inner="quartiles",
     split=True,
-    hue='hgt',
+    hue="hgt",
 )
 axes[1].set_ylabel("Gene length")
 axes[1].set_title(
