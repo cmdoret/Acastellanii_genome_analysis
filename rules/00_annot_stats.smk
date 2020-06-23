@@ -71,7 +71,7 @@ rule quast_report:
     ref_gff = join(IN, 'annotations', 'NEFF_v1.43.gff')
   conda: '../envs/quast.yaml'
   threads: NCPUS
-  shell: 'quast -t {threads} -e -g {params.ref_gff} -r {params.ref_fa} -o {output} {input}'
+  shell: 'quast -t {threads} -e -o {output} {input} {params.ref_fa}'
 
 rule busco:
     input: join(TMP, 'renamed', '{assembly}_genome.fa')
