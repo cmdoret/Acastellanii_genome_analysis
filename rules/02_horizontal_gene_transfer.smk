@@ -304,6 +304,7 @@ rule blast_v1_v2:
         bact_db = join(DB, 'blast', 'nr_v5', 'nr_v5'),
         amoeba_db = join(TMP, 'amoeba_blast_db')
     threads: NCPUS
+    conda: '../envs/blast.yaml'
     singularity: 'docker://cmdoret/blast:2.9.0'
     shell:
         """

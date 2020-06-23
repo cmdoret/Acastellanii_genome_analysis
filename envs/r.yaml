@@ -8,3 +8,4 @@ dependencies:
   - r-tidyverse
   - r-ggpubr
   - r-patchwork
+  - assembly-stats

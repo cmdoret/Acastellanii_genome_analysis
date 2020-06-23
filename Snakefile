@@ -88,7 +88,7 @@ rule all:
         join(OUT, 'plots', 'acastellanii_quast_report'),
         expand(join(OUT, 'stats', '{strain}_annot_stats.tsv'), strain=samples.strain),
         join(OUT, 'plots', 'hgt_stats.svg'),
-        join(OUT, 'figures', 'hgt_similarity.svg'),
+        #join(OUT, 'figures', 'hgt_similarity.svg'),
         join(OUT, 'plots', 'busco_comparison.svg')
 
 
