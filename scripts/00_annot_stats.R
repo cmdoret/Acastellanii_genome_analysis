@@ -7,24 +7,34 @@ library(stringr)
 library(ggplot2)
 library(dplyr)
 library(tidyr)
+library(tibble)
 library(gridExtra)
 args <- commandArgs(trailingOnly=TRUE)
 
 ### GET ARGS ###
-in_gff <- args[1]
-out_tbl <- args[2]
-out_plot <- args[3]
+v1_gff <- args[1]
+neff_gff <- args[2]
+c3_gff <- args[3]
+out_tbl <- args[4]
+out_plot <- args[5]
 
 ### LOAD DATA ###
-gff <- read_tsv(in_gff, comment="#", col_names=F)
-colnames(gff) <- c("chrom", "source", "type", "start", "end", "score", "strand", "phase", "attributes")
-gff <- gff %>% filter(type %in% c("mRNA", "CDS", "gene", "exon"))
+load_gff <- function(in_gff, name){
+    gff <- read_tsv(in_gff, comment="#", col_names=F)
+    colnames(gff) <- c("chrom", "source", "type", "start", "end", "score", "strand", "phase", "attributes")
+    gff <- gff %>% filter(type %in% c("mRNA", "CDS", "gene", "exon"))
 
-### Clean data
-gff <- gff %>% mutate(attributes=gsub("Parent=", "ID=", attributes)) %>%
-    mutate(ID=str_extract(attributes, 'ID=[^;]*')) %>%
-    mutate(ID=gsub("=[a-zA-Z]{1,}:", "=", ID)) %>%
-    mutate(ID=sapply(ID, function(x){str_split(x,regex('[=-]'))[[1]][2]}))
+    ### Clean data
+    gff <- gff %>% mutate(attributes=gsub("Parent=", "ID=", attributes)) %>%
+        mutate(ID=str_extract(attributes, 'ID=[^;]*')) %>%
+        mutate(ID=gsub("=[a-zA-Z]{1,}:", "=", ID)) %>%
+        mutate(ID=sapply(ID, function(x){str_split(x,regex('[=-]'))[[1]][2]})) %>%
+        mutate(name=name)
+    return(gff)
+}
+gff <- load_gff(v1_gff, "NEFF_v1") %>%
+    bind_rows(load_gff(neff_gff, "Neff")) %>%
+    bind_rows(load_gff(c3_gff, "C3"))
 
 ### COMPUTE STATS ###
 
@@ -49,49 +59,61 @@ gff_stats <- gff_gene_len %>%
 
 ### VISUALISE ###
 
-# Get sample name from file name
-clean_name <- strsplit(basename(in_gff), "\\.")[[1]][1]
 # Label generator to get number of samples
 n_obs <- function(x){return(data.frame(y=0, label=paste0("n=", length(x))))}
 
-feature_len <- ggplot(data=gff %>%filter(type %in% c("CDS", "gene")), 
-                      aes(x=type, y=log10(end - start))) +
-    geom_violin(scale='width') +
+feature_len <- ggplot(data=gff %>% filter(type %in% c("CDS", "gene")), 
+                      aes(x=name, y=log10(end - start), fill=name)) +
+    geom_violin() +
     stat_summary(fun.data = n_obs, geom = "text") +
     theme_minimal() +
     xlab("") + 
     ylab("log10 length") + 
-    ggtitle(clean_name) +
-    scale_y_continuous(limits = c(0, 6))
+    ggtitle("Gene length") +
+    facet_wrap(.~type) +
+    scale_y_continuous(limits = c(0, 6)) + 
+    geom_boxplot(width=0.1)
 
-q25 <- unname(quantile(gff_exons$n_exon, 0.25))
-med <- median(gff_exons$n_exon)
-q75 <- unname(quantile(gff_exons$n_exon, 0.75))
-q_labs <- c(
-    "q25"=paste0("25% quantile: ", q25), 
-    "q75"=paste0("75% quantile: ", q75), 
-    "med"=paste0("Median: ", med)
-)
-gff_exons <- gff_exons %>% 
-  mutate(n_exon_quant = case_when(
-    n_exon <= q25 ~ q_labs["q25"],
-    n_exon >= q75 ~ q_labs["q75"],
-    TRUE          ~ q_labs["med"]))
-gff_exons <- gff_exons %>% 
-    mutate(n_exon_quant = factor(n_exon_quant, ordered=T, 
-                                 levels=unname(q_labs[c('q25', 'med', 'q75')])))
+exon_quantiles <- gff_exons %>% 
+  group_by(name) %>% 
+  summarise(x=list(enframe(quantile(n_exon, probs=c(0.25,0.5,0.75)), "quantiles", "exons"))) %>% 
+  unnest(x) %>%
+  spread(key=quantiles, value=exons)
 
-exon_per_gene <- ggplot(data=gff_exons, aes(x=n_exon, fill=n_exon_quant)) +
+# Assign a quantile label to each exon number based on its strain's exon number distribution
+exons_tbl <- gff_exons %>%
+    inner_join(exon_quantiles, by="name") %>%
+    mutate(
+        n_exon_quant = case_when(
+            n_exon <= `25%` ~ "25% quantile",
+            n_exon >= `75%` ~ "75% quantile",
+            TRUE            ~ "Median"
+        )
+    ) %>%
+    select(name, n_exon, n_exon_quant)
+
+exons_tbl <- exons_tbl %>% 
+    mutate(
+        n_exon_quant = factor(
+            n_exon_quant,
+            ordered=T, 
+            levels=c("25% quantile", "Median", "75% quantile")
+        )
+    )
+
+exon_per_gene <- ggplot(data=exons_tbl, aes(x=n_exon, fill=n_exon_quant)) +
     scale_fill_manual(values=c("#6666ee", "#999999", "#ee6666")) +
     geom_histogram(binwidth=1) +
-    geom_vline(xintercept=med) +
     theme_minimal() +
+    stat_summary(aes(x = 0.1, y = n_exon, xintercept = stat(y), group = name), 
+               fun.y = median, geom = "vline") +
     ylab("Genes") +
     xlab("Exons per genes") +
+    facet_grid(name~.) +
     scale_x_continuous(limits = c(-0, 100))
 
 ### SAVE OUTPUT ###
-svg(out_plot)
+svg(out_plot, height=10, width=12)
 grid.arrange(feature_len, exon_per_gene)
 dev.off()
 write_tsv(gff_stats, out_tbl)

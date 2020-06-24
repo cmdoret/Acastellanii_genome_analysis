@@ -25,28 +25,30 @@ rule rename_entries:
 
 # Just copying v1 assembly so that filename pattern matches other strains
 rule rename_v1:
-    input: join(IN, 'genomes', 'NEFF_v1.fa')
-    output: join(TMP, 'renamed', 'NEFF_v1_genome.fa')
-    shell: "cp {input} {output}"
+    input:
+        genome = join(IN, 'genomes', 'NEFF_v1.fa'),
+        annot = join(IN, 'annotations', 'NEFF_v1.43.gff')
+    output:
+        genome = join(TMP, 'renamed', 'NEFF_v1_genome.fa'),
+        annot = join(TMP, 'renamed', 'NEFF_v1_annotations.gff')
+    shell:
+        """
+        cp {input.genome} {output.genome}
+        cp {input.annot} {output.annot}
+        """
 
 
 # 00 General annotations stats from amoeba GFF files
 rule amoeba_annot_stats:
-    input: join(TMP, 'renamed', '{amoeba}_annotations.gff')
+    input:
+        v1 = join(TMP, 'renamed', 'NEFF_v1_annotations.gff'),
+        neff = join(TMP, 'renamed', 'Neff_annotations.gff'),
+        c3 = join(TMP, 'renamed', 'C3_annotations.gff')
     output:
-        tbl = join(OUT, 'stats', '{amoeba}_annot_stats.tsv'),
-        plt = join(OUT, 'plots', '{amoeba}_annot_stats.svg')
+        tbl = join(OUT, 'stats', 'annot_stats.tsv'),
+        plt = join(OUT, 'plots', 'annot_stats.svg')
     conda: '../envs/r.yaml'
-    shell: "Rscript scripts/00_annot_stats.R {input} {output.tbl} {output.plt}"
-
-
-rule Neff_v1_annot_stats:
-    input: join(IN, 'annotations', 'NEFF_v1.43.gff')
-    output:
-        tbl = join(OUT, 'stats', 'NEFF_v1_oldannot_stats.tsv'),
-        plt = join(OUT, 'plots', 'NEFF_v1_oldannot_stats.svg')
-    conda: '../envs/r.yaml'
-    shell: "Rscript scripts/00_annot_stats.R {input} {output.tbl} {output.plt}"
+    shell: "Rscript scripts/00_annot_stats.R {input.v1} {input.neff} {input.c3} {output.tbl} {output.plt}"
 
 
 # 00b Visualise assembly stats

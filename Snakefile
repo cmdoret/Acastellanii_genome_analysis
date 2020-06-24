@@ -76,8 +76,7 @@ wildcard_constraints:
 rule all:
     input:
         join(OUT, 'GLOOME'),
-        expand(join(OUT, 'plots', '{strain}_annot_stats.svg'), strain=["Neff", "C3"]),
-        join(OUT, 'plots', 'NEFF_v1_oldannot_stats.svg'),
+        join(OUT, 'plots', 'annot_stats.svg'),
         expand(join(OUT, 'plots', 'rdna_mat_{strain}.svg'), strain=samples.strain),
         join(OUT, "MCScanX", "MCScanX.done"),
         join(OUT, 'plots', 'circos.svg'),
@@ -86,7 +85,7 @@ rule all:
         join(OUT, 'plots', 'gene_families_venn.svg'),
         #join(OUT, 'orthofinder_blast', 'similarity_profile_bact.svg'),
         join(OUT, 'plots', 'acastellanii_quast_report'),
-        expand(join(OUT, 'stats', '{strain}_annot_stats.tsv'), strain=samples.strain),
+        join(OUT, 'stats', 'annot_stats.tsv'),
         join(OUT, 'plots', 'hgt_stats.svg'),
         #join(OUT, 'figures', 'hgt_similarity.svg'),
         join(OUT, 'plots', 'busco_comparison.svg')
