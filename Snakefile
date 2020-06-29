@@ -88,7 +88,8 @@ rule all:
         join(OUT, 'stats', 'annot_stats.tsv'),
         join(OUT, 'plots', 'hgt_stats.svg'),
         #join(OUT, 'figures', 'hgt_similarity.svg'),
-        join(OUT, 'plots', 'busco_comparison.svg')
+        join(OUT, 'plots', 'busco_comparison.svg'),
+        join(OUT, 'go_enrich', 'hgt_go_enrich.tsv')
 
 
 

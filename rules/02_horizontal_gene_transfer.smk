@@ -350,4 +350,9 @@ rule plot_similarity_hgt:
         plt.savefig(output[0])
 
 
-# Extract 
+# GO enrichment analysis on HGT candidates
+rule go_enrichment:
+    input: join(OUT, 'hgt', 'hgt_stats.tsv')
+    output: join(OUT, 'go_enrich', 'hgt_go_enrich.tsv')
+    conda: '../envs/r.yaml'
+    shell: 'Rscript scripts/go_enrich.R {input} {output}'

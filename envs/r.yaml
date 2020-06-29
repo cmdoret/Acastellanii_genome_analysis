@@ -5,7 +5,9 @@ channels:
   - defaults
   - r
 dependencies:
+  - r-viridis
   - r-tidyverse
   - r-ggpubr
   - r-patchwork
+  - bioconductor-topgo
   - assembly-stats
