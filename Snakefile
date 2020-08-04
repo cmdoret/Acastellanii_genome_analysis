@@ -89,7 +89,9 @@ rule all:
         join(OUT, 'plots', 'hgt_stats.svg'),
         #join(OUT, 'figures', 'hgt_similarity.svg'),
         join(OUT, 'plots', 'busco_comparison.svg'),
-        join(OUT, 'go_enrich', 'hgt_go_enrich.tsv')
+        join(OUT, 'go_enrich', 'hgt_go_enrich.tsv'),
+	join(OUT, 'plots', 'v1_v2_hgt_overlap.svg')
+
 
 
 

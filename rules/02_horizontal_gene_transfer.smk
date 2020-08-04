@@ -19,8 +19,8 @@ rule orthofinder:
         ac_proteomes = expand(
             join(TMP, 'renamed', '{strain}_proteome.fa'),
             strain=samples.strain
-        ),
-        hgt_neff_v1 = join(OUT, 'hgt', 'NEFF_v1_hgt_cds.fa')
+        )
+        #hgt_neff_v1 = join(OUT, 'hgt', 'NEFF_v1_hgt_cds.fa')
     output: directory(join(OUT, 'hgt', 'orthofinder'))
     threads: NCPUS
     params:
@@ -36,7 +36,7 @@ rule orthofinder:
             new_fname="${{fname/_proteome/}}"
             cp $strain "{params.orthofinder_dir}/$new_fname"
         done
-        cp "{input.hgt_neff_v1}" "{params.orthofinder_dir}/"
+        #cp "{{input.hgt_neff_v1}}" "{params.orthofinder_dir}/"
         orthofinder -f {params.orthofinder_dir} \
                     -o {output} \
                     -S diamond \
@@ -113,7 +113,7 @@ rule acastellanii_specific:
         # Note: hgt events inferred in Clarke et al. also included for comparison)
         vdf = pd.DataFrame({
             'neff'  : ~st_abs['Neff'],
-            'NEFF_v1_hgt_cds'  : ~get_absent(ortho.NEFF_v1_hgt_cds),
+            #'NEFF_v1_hgt_cds'  : ~get_absent(ortho.NEFF_v1_hgt_cds),
             'c3'    : ~st_abs['C3'],
             'ac'    : ~ac_abs,
             'bact'  : bact_pres,
@@ -132,9 +132,9 @@ rule plot_orthogroups_venn:
         mpl.use('Agg')
         vdf = pd.read_csv(input['pres_compact'], sep='\t').drop('Orthogroup', axis=1)
         vdf = vdf.astype(bool)
-        vdf = vdf.rename(columns={'NEFF_v1_hgt_cds': 'v1'})
+        #vdf = vdf.rename(columns={'NEFF_v1_hgt_cds': 'v1'})
         # Make Venn diagram. sets are A, B, AB, C, AC, BC, ABC
-        fig, ax = plt.subplots(2, 2, figsize=(15, 12))
+        fig, ax = plt.subplots(1, 2, figsize=(15, 12))
         venn3(
             subsets = (
                 len(vdf.query('    ac and not bact and not amoeba')), #A
@@ -146,7 +146,7 @@ rule plot_orthogroups_venn:
                 len(vdf.query('    ac and     bact and     amoeba')), #ABC
             ),
             set_labels = ('A. castellanii', 'Bacteria', 'Amoeba'),
-            ax=ax[0, 0]
+            ax=ax[0]
         )
         venn2(
             subsets = (
@@ -155,30 +155,7 @@ rule plot_orthogroups_venn:
                 len(vdf.query('    c3 and     neff')),
             ),
         set_labels = ("C3", "Neff"),
-        ax=ax[0, 1]
-        )
-        vdf['v2'] = vdf.ac & vdf.bact & (~ vdf.amoeba)
-        venn3(
-            subsets = (
-                len(vdf.query('    v1 and not bact and not amoeba')), #A
-                len(vdf.query('not v1 and     bact and not amoeba')), #B
-                len(vdf.query('    v1 and     bact and not amoeba')), #AB
-                len(vdf.query('not v1 and not bact and     amoeba')), #C
-                len(vdf.query('    v1 and not bact and     amoeba')), #AC
-                len(vdf.query('not v1 and     bact and     amoeba')), #BC
-                len(vdf.query('    v1 and     bact and     amoeba')), #ABC
-            ),
-            set_labels = ('NEFF_v1', 'Bacteria', 'Amoeba'),
-            ax=ax[1, 0]
-        )
-        venn2(
-            subsets = (
-                len(vdf.query('    v1 and not v2')), #A
-                len(vdf.query('not v1 and     v2')), #B
-                len(vdf.query('    v1 and     v2')), #AB
-            ),
-        set_labels = ("HGT_v1", "HGT_v2"),
-        ax=ax[1, 1]
+        ax=ax[1]
         )
         fig.savefig(output['venn'])
 
@@ -332,6 +309,73 @@ rule blast_v1_v2:
 
         rm -f {params.amoeba_db}.p{{hr,in,sq}}
         """
+
+rule blast_v1_hgt_vs_ac:
+    input:
+        v1_hgt = join(OUT, 'hgt', 'NEFF_v1_hgt_cds.fa')
+    output:
+        blast = join(OUT, 'blast', 'hgt_v1_vs_neff.blast')
+    params:
+        neff = samples.proteome["Neff"],
+        neff_db = temp(join(TMP, 'blast', 'neff_db'))
+    threads: 12
+    shell:
+        """
+        makeblastdb -dbtype prot -in {params.neff} -title neff -out {params.neff_db}
+        blastp -evalue 0.001 -outfmt 6 -db {params.neff_db} -num_threads {threads} -query {input.v1_hgt} > {output.blast}
+        """
+
+# Filter the best hit in the Neff proteome for every HGT
+rule filter_blast_hits:
+    input: join(OUT, 'blast', 'hgt_v1_vs_neff.blast')
+    output: join(OUT, 'blast', 'hgt_v1_vs_neff_filtered.blast')
+    run:
+        df = pd.read_csv(input[0], sep='\t', header=None, usecols=[0, 1, 10], names=['query', 'target', 'evalue'])
+        keep_idx = df.groupby('query')['evalue'].transform(min) == df['evalue']
+        df[keep_idx].to_csv(output[0], sep='\t', index=False)
+
+# Compute proportion of matching HGT between Clarke et al and our calls
+rule plot_overlap_hgt_v1_v2:
+    input:
+        v1 = join(OUT, 'blast', 'hgt_v1_vs_neff_filtered.blast'),
+        v2 = join(OUT, 'hgt', 'hgt_stats.tsv')
+    output: join(OUT, 'plots', 'v1_v2_hgt_overlap.svg')
+    run:
+        v1 = pd.read_csv(input['v1'], sep='\t')
+        v2 = pd.read_csv(input['v2'], sep='\t' )
+	v2 = v2.loc[v2.ID.str.contains("Neff"), :]
+	v2.ID = v2.ID.str.replace("Neff_", "")
+	v1.target = v1.target.str.replace('-T[0-9]+$', '')
+	merged = v1.merge(v2, left_on="target", right_on="ID", how='outer')
+        mpl.use('Agg')
+	fig, ax = plt.subplots(1, 2)
+        venn2(
+            subsets = (
+                ((merged.hgt != 1) & ~merged['query'].isnull()).sum(), #v1 only
+                (merged['query'].isnull() & (merged.hgt == 1)).sum(), #v2 only
+                ((merged.hgt == 1) & ~merged['query'].isnull()).sum(), #both v1 and v2
+            ),
+        set_labels = ("HGT_v1", "HGT_v2"),
+	ax=ax[0]
+        )
+	ax[0].set_title("Overlap between our HGT calls and Clarke et al.")
+	vdf = merged.loc[~merged['query'].isnull(), ['ac', 'bact', 'amoeba']].astype(bool)
+        venn3(
+            subsets = (
+                len(vdf.query('    ac and not bact and not amoeba')), #A
+                len(vdf.query('not ac and     bact and not amoeba')), #B
+                len(vdf.query('    ac and     bact and not amoeba')), #AB
+                len(vdf.query('not ac and not bact and     amoeba')), #C
+                len(vdf.query('    ac and not bact and     amoeba')), #AC
+                len(vdf.query('not ac and     bact and     amoeba')), #BC
+                len(vdf.query('    ac and     bact and     amoeba')), #ABC
+            ),
+            set_labels = ('A. castellanii', 'Bacteria', 'Amoeba'),
+            ax=ax[1]
+        )
+	ax[1].set_title("Group distribution of HGT calls from Clarke et al.")
+	plt.savefig(output[0])
+        
 
 # Visualise distribution of sequence similarity between HGT predicted in v1 and v2 
 # vs bacterial genes
