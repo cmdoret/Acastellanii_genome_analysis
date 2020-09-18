@@ -4,7 +4,7 @@
 # Note it takes for threads, but only uses 1 in practice. This is to limit the
 # number of instances running (e.g. 3 on 12 threads and avoid spamming ncbi
 rule fetch_proteomes:
-    output: join(OUT, 'proteomes', '{organism}_raw.fa')
+    output: temp(join(OUT, 'proteomes', '{organism}_raw.fa'))
     params:
         org = organisms
     threads: 4
@@ -24,7 +24,7 @@ rule fetch_proteomes:
 # Remove redundant (99% identical) proteins from each proteome
 rule cdhit_proteomes:
   input: join(OUT, 'proteomes', '{organism}_raw.fa')
-  output: join(OUT, 'proteomes', '{organism}.fa')
+  output: join(OUT, 'filtered_proteomes', '{organism}.fa')
   params:
     sim = 0.95
   conda: '../envs/cdhit.yaml'
