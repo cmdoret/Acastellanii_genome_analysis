@@ -132,7 +132,14 @@ def name_to_proteins(name, db="protein", email="someone@email.com", filters=""):
     # Fetch proteins by batch of 100 to avoid maximum number of queries
     for e in range(chunk_size, len(query["IdList"]), chunk_size):
         print(f"fetching entries {s} to {e}")
-        seqs += Entrez.efetch(id=query["IdList"][s:e], rettype="fasta", db=db).read()
+        fetched = False
+        while not fetched:
+            try:
+                seqs += Entrez.efetch(id=query["IdList"][s:e], rettype="fasta", db=db).read()
+                fetched = True
+            except:
+                print("Fetching failed, trying again.")
+                time.sleep(5)
         s = e
         time.sleep(0.1)
     e = len(query["IdList"])
