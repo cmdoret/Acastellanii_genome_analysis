@@ -13,7 +13,7 @@ rule get_v1_hgt:
 rule orthofinder:
     input: 
         org_proteomes = expand(
-            join(OUT, 'proteomes', '{organism}.fa'),
+            join(OUT, 'filtered_proteomes', '{organism}.fa'),
             organism=organisms.clean_name
         ),
         ac_proteomes = expand(
@@ -25,10 +25,13 @@ rule orthofinder:
     threads: NCPUS
     params:
       orthofinder_dir = join(TMP, 'orthofinder')
+    conda: '../envs/orthofinder.yaml'
     shell:
         """
+	ulimit -n 10000
         # Move all organisms proteomes to orthofinder workdir
         mkdir -p {params.orthofinder_dir}
+	rm -f {params.orthofinder_dir}/*
         cp {input.org_proteomes} {params.orthofinder_dir}
         # Move Ac proteomes as well, but trim proteome from filename
         for strain in {input.ac_proteomes}; do
