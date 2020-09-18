@@ -80,17 +80,17 @@ rule all:
         expand(join(OUT, 'plots', 'rdna_mat_{strain}.svg'), strain=samples.strain),
         join(OUT, "MCScanX", "MCScanX.done"),
         join(OUT, 'plots', 'circos.svg'),
-        #expand(join(OUT, 'go_enrich', '{amoeba}_enrich.txt'), amoeba="Neff"),
         join(OUT, 'plots', 'assembly_radars.svg'),
         join(OUT, 'plots', 'gene_families_venn.svg'),
-        #join(OUT, 'orthofinder_blast', 'similarity_profile_bact.svg'),
         join(OUT, 'plots', 'acastellanii_quast_report'),
         join(OUT, 'stats', 'annot_stats.tsv'),
         join(OUT, 'plots', 'hgt_stats.svg'),
-        #join(OUT, 'figures', 'hgt_similarity.svg'),
         join(OUT, 'plots', 'busco_comparison.svg'),
         join(OUT, 'go_enrich', 'hgt_go_enrich.tsv'),
 	join(OUT, 'plots', 'v1_v2_hgt_overlap.svg')
+        #join(OUT, 'figures', 'hgt_similarity.svg'),
+        #join(OUT, 'orthofinder_blast', 'similarity_profile_bact.svg'),
+        #expand(join(OUT, 'go_enrich', '{amoeba}_enrich.txt'), amoeba="Neff"),
 
 
 

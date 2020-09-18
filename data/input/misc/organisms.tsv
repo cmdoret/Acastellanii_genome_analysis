@@ -11,5 +11,44 @@ amoeba	Heterostelium album	2086695
 amoeba	Planoprotostelium fungivorum	68001
 amoeba	Tieghemostelium lacteum	361077
 bacteria	Candidatus Paracaedibacter acanthamoebae	91604
+bacteria	Candidatus Protochlamydia amoebophila	362787
+bacteria	Candidatus Amoebophilus asiaticus	281120
+bacteria	Rickettsia bellii	33990
 bacteria	Parachlamydia acanthamoebae	765952
-bacteria	Legionella pneumophila	91604
+bacteria	Legionella brunensis	28084
+bacteria	Legionella cherrii	28084
+bacteria	Legionella clemsonensis	1867846
+bacteria	Legionella drancourtii	168933
+bacteria	Legionella dumoffii	463
+bacteria	Legionella fallonii	96230
+bacteria	Legionella feeleii	453
+bacteria	Legionella geestiana	45065
+bacteria	Legionella hackeliae	449
+bacteria	Legionella israelensis	454
+bacteria	Legionella jordanis	456
+bacteria	Legionella lansingensis	45067
+bacteria	Legionella longbeachae	450
+bacteria	Legionella massiliensis	1034943
+bacteria	Legionella oakridgensis	29423
+bacteria	Legionella parisiensis	45071
+bacteria	Legionella pneumophila str. Paris	297246
+bacteria	Legionella pneumophila subsp. pneumophila str. Philadelphia 1	91604
+bacteria	Legionella pneumophila str. Corby	400673
+bacteria	Legionella pneumophila str. Lens	297245
+bacteria	Legionella pneumophila subsp. fraseri	91892
+bacteria	Legionella sainthelensi	28087
+bacteria	Legionella santicrucis	45074
+bacteria	Legionella shakespearei	45075
+bacteria	Legionella spiritensis	452
+bacteria	Legionella taurinensis	70611
+bacteria	Legionella waltersii	66969
+bacteria	Legionella yabuuchiae	376727
+virus	Acanthamoeba polyphaga mimivirus	212035
+virus	Acanthamoeba polyphaga moumouvirus	1269028
+virus	Lausannevirus	999883
+virus	Marseillevirus	1513458
+virus	Pandoravirus dulcis	1349409
+virus	Pandoravirus inopinatum	1605721
+virus	Pandoravirus salinus	1349410
+virus	Pithovirus sibericum	1450746
+virus	Aureococcus anophagefferens virus	1474867
