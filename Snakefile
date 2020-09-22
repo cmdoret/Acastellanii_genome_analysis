@@ -8,10 +8,11 @@
 # cmdoret, 20190410
 
 shell.executable("/bin/bash")
+from collections import defaultdict
 from Bio import SeqIO
 import re
 import time
-from os.path import join
+from os.path import join, basename
 import numpy as np
 import pandas as pd
 from src import fasta_utils as fu
@@ -87,7 +88,9 @@ rule all:
         join(OUT, 'plots', 'hgt_stats.svg'),
         join(OUT, 'plots', 'busco_comparison.svg'),
         join(OUT, 'go_enrich', 'hgt_go_enrich.tsv'),
-	join(OUT, 'plots', 'v1_v2_hgt_overlap.svg')
+        expand(join(OUT, 'plots', 'xenolog_species_{strain}.svg'), strain=samples.strain),
+        join(OUT, 'plots', 'v1_v2_hgt_overlap.svg'),
+	join(OUT, 'hgt', 'NEFF_v1_hgt.tsv')
         #join(OUT, 'figures', 'hgt_similarity.svg'),
         #join(OUT, 'orthofinder_blast', 'similarity_profile_bact.svg'),
         #expand(join(OUT, 'go_enrich', '{amoeba}_enrich.txt'), amoeba="Neff"),

@@ -1,12 +1,42 @@
 
 # Retrieve HGT sequences from Neff v1 publication and translate them
-rule get_v1_hgt:
+rule get_v1_hgt_fa:
     output: join(OUT, 'hgt', 'NEFF_v1_hgt_cds.fa')
     params:
         hgt_ids = join(IN, 'misc', 'NEFF_v1_HGT.tsv'),
         cds = join(IN, 'cds', 'NEFF_v1.43.fa')
     conda: '../envs/seqkit.yaml'
     shell: "seqkit grep -r -f {params.hgt_ids} {params.cds} | seqkit translate > {output}"
+
+# Same for the gff3 file...
+rule get_v1_hgt_gff:
+    output: join(OUT, 'hgt', 'NEFF_v1_hgt.tsv')
+    params:
+        gff = join(IN, 'annotations', 'NEFF_v1.43.gff'),
+        hgt = join(IN, 'misc', 'NEFF_v1_HGT.tsv')
+    run:
+        hgt_ids = {i.strip() for i in open(params['hgt'])}
+        outf = open(output[0], 'w')
+        with open(params['gff'], 'r') as gff:
+            hgt = False
+            n_exons = 0
+            for line in gff:
+                fields = line.split('\t')
+                if re.match('^#', line):
+                    continue
+                elif fields[2] == 'gene':
+                    # ID chrom start end type strand n_exon gene_len mrna_len attributes
+                    if hgt:
+                        outf.write(f"{curr_hgt.strip()}\t{n_exons}\n")
+                    gene_id = re.search('gene:([^;]+);', fields[8]).group(1)
+                    if gene_id in hgt_ids:
+                        hgt = True 
+                        n_exons = 0
+                        curr_hgt = line
+                    else:
+                        hgt = False
+                elif fields[2] == 'exon':
+                    n_exons += 1
 
 # Build pangenome and protein tree from amoeba and bacteria, also including HGT inferred
 # in the first genome paper
@@ -28,10 +58,10 @@ rule orthofinder:
     conda: '../envs/orthofinder.yaml'
     shell:
         """
-	ulimit -n 10000
+        ulimit -n 10000
         # Move all organisms proteomes to orthofinder workdir
         mkdir -p {params.orthofinder_dir}
-	rm -f {params.orthofinder_dir}/*
+        rm -f {params.orthofinder_dir}/*
         cp {input.org_proteomes} {params.orthofinder_dir}
         # Move Ac proteomes as well, but trim proteome from filename
         for strain in {input.ac_proteomes}; do
@@ -83,8 +113,8 @@ rule GLOOME:
 rule acastellanii_specific:
     input: join(OUT, 'hgt', 'orthofinder')
     output: 
-        pres_mat = join(OUT, 'specific_genes', 'presence_matrix.tsv'),
-        pres_compact = join(OUT, 'specific_genes', 'presence_compact.tsv')
+        pres_mat = join(OUT, 'hgt', 'presence_matrix.tsv'),
+        pres_compact = join(OUT, 'hgt', 'presence_compact.tsv')
     params:
         focus_st = samples.strain,
         amoeba = organisms.clean_name[organisms['type'] == 'amoeba'],
@@ -128,7 +158,7 @@ rule acastellanii_specific:
 
 rule plot_orthogroups_venn:
     input: 
-        pres_compact = join(OUT, 'specific_genes', 'presence_compact.tsv')
+        pres_compact = join(OUT, 'hgt', 'presence_compact.tsv')
     output:
         venn = join(OUT, 'plots', 'gene_families_venn.svg')
     run:
@@ -166,7 +196,7 @@ rule plot_orthogroups_venn:
 # for now, groups will be hgt or background
 rule get_spec_seq:
     input:
-        pres = join(OUT, 'specific_genes', 'presence_compact.tsv'),
+        pres = join(OUT, 'hgt', 'presence_compact.tsv'),
         orthofinder_dir = join(OUT, 'hgt', 'orthofinder')
     output:
         join(TMP, 'merged', '{group}_orthogroup_seq.fa')
@@ -208,42 +238,12 @@ rule filter_ac_orthologues:
     shell: "seqkit grep {params.invert} -r -p '{params.id_filter}' {input} > {output}"
 
 
-# Compute similarity profile between HGT candidates and bacteria 
-# versus the rest of amoeba genes
-rule bact_similarity:
-    input:
-        join(TMP, 'merged', '{group}_orthogroup_seq_filtered.fa')
-    output:
-        join(OUT, 'orthofinder_blast', '{group}_orthogroup_bact.blast')
-    threads: NCPUS
-    params:
-        db = join(DB, 'blast', 'nr_v5', 'nr_v5')
-        #db = join(DB, 'blast', 'nr_v5', 'nr.v5')
-    singularity: 'docker://cmdoret/blast:2.9.0'
-    shell:
-        """
-        blastp -num_threads {threads} \
-               -max_target_seqs 5 \
-               -taxids 2 \
-               -db {params.db} \
-               -query {input} \
-               -outfmt 6 \
-               -out {output}
-        """
-
-rule compute_similarity_profile:
-    input:
-        hgt_sim = join(OUT, 'orthofinder_blast', 'hgt_orthogroup_bact.blast'),
-        bg_sim = join(OUT, 'orthofinder_blast', 'background_orthogroup_bact.blast')
-    output: join(OUT, 'orthofinder_blast', 'similarity_profile_bact.svg')
-    conda: "../envs/r.yaml"
-    shell: "Rscript scripts/02_similarity_profile.R {input.hgt_sim} {input.bg_sim} {output}"
-
+  
 
 # Descriptive statistics of HGT candidates
 rule compare_HGT_candidates:
     input:
-        pres = join(OUT, 'specific_genes', 'presence_compact.tsv'),
+        pres = join(OUT, 'hgt', 'presence_compact.tsv'),
         anno = expand(join(OUT, 'stats', '{strain}_annot_stats.tsv'), strain=["C3", "Neff"])
     params:
         og_to_gene = join(OUT, 'hgt', 'orthofinder', 'Results_amoeba', 'Orthogroups', 'Orthogroups.txt')
@@ -328,57 +328,112 @@ rule blast_v1_hgt_vs_ac:
         blastp -evalue 0.001 -outfmt 6 -db {params.neff_db} -num_threads {threads} -query {input.v1_hgt} > {output.blast}
         """
 
-# Filter the best hit in the Neff proteome for every HGT
-rule filter_blast_hits:
-    input: join(OUT, 'blast', 'hgt_v1_vs_neff.blast')
-    output: join(OUT, 'blast', 'hgt_v1_vs_neff_filtered.blast')
-    run:
-        df = pd.read_csv(input[0], sep='\t', header=None, usecols=[0, 1, 10], names=['query', 'target', 'evalue'])
-        keep_idx = df.groupby('query')['evalue'].transform(min) == df['evalue']
-        df[keep_idx].to_csv(output[0], sep='\t', index=False)
 
-# Compute proportion of matching HGT between Clarke et al and our calls
-rule plot_overlap_hgt_v1_v2:
+# GO enrichment analysis on HGT candidates
+rule go_enrichment:
+    input: join(OUT, 'hgt', 'hgt_stats.tsv')
+    output: join(OUT, 'go_enrich', 'hgt_go_enrich.tsv')
+    conda: '../envs/r.yaml'
+    shell: 'Rscript scripts/go_enrich.R {input} {output}'
+
+rule quant_xenolog_species:
     input:
-        v1 = join(OUT, 'blast', 'hgt_v1_vs_neff_filtered.blast'),
-        v2 = join(OUT, 'hgt', 'hgt_stats.tsv')
-    output: join(OUT, 'plots', 'v1_v2_hgt_overlap.svg')
+        ortho_dir = join(OUT, 'hgt', 'orthofinder'),
+        fastas = expand(
+            join(OUT, 'filtered_proteome', '{organism}.fa'),
+            organism=organisms.clean_name
+        )
+    output:
+        plt = join(OUT, 'plots', 'xenolog_species_{strain}.svg'),
+        tbl = join(OUT, 'hgt', 'xenolog_tbl_{strain}.tsv')
     run:
-        v1 = pd.read_csv(input['v1'], sep='\t')
-        v2 = pd.read_csv(input['v2'], sep='\t' )
-	v2 = v2.loc[v2.ID.str.contains("Neff"), :]
-	v2.ID = v2.ID.str.replace("Neff_", "")
-	v1.target = v1.target.str.replace('-T[0-9]+$', '')
-	merged = v1.merge(v2, left_on="target", right_on="ID", how='outer')
-        mpl.use('Agg')
-	fig, ax = plt.subplots(1, 2)
-        venn2(
-            subsets = (
-                ((merged.hgt != 1) & ~merged['query'].isnull()).sum(), #v1 only
-                (merged['query'].isnull() & (merged.hgt == 1)).sum(), #v2 only
-                ((merged.hgt == 1) & ~merged['query'].isnull()).sum(), #both v1 and v2
-            ),
-        set_labels = ("HGT_v1", "HGT_v2"),
-	ax=ax[0]
+        # Generate a mapping from protein ID's to species name
+        sp_dicts = []
+        for fa in input['fastas']:
+            clean_sp = basename(fa)[:-3]
+            sp = organisms.loc[organisms.clean_name == clean_sp, 'name'].values[0]
+            sp_dicts.append({prot.name: sp for prot in SeqIO.parse(fa, 'fasta')})
+        # Flatten the list of dictionaries into a single dict
+        prot2sp = {p: s for sp_dict in sp_dicts for p, s in sp_dict.items()}
+        xeno_path = join(input['ortho_dir'], 'Results_amoeba', 'Putative_Xenologs', f'{wildcards.strain}.tsv')
+        xeno = pd.read_csv(xeno_path, sep='\t')
+        # Count the number of occurences of each donor in putative Xenolog for A. castellanii
+        donors = defaultdict(list)
+        for prot, og in zip(xeno.Other, xeno.Orthogroup):
+            for donor_prot in prot.split(','):
+                donor_prot = donor_prot.strip()
+                if donor_prot.startswith(("Neff", "C3")):
+                    continue
+                # Append the orthogroup and protein names of the current protein
+                donors[prot2sp[donor_prot]].append((og, donor_prot))
+        labels, all_prots, all_ogs, genera = [], [], [], []
+        for name, prots in donors.items():
+            split = name.split(" ")
+            if len(split) > 1:
+                genus = split[0][0].upper()
+                species = ' '.join(split[1:])
+                labels.append(genus + ". " + species)
+                genera.append(split[0])
+            else:
+                labels.append(name)
+                genera.append(name)
+            all_ogs.append([p[0].strip() for p in prots])
+            all_prots.append([p[1].strip() for p in prots])
+        donors_df = pd.DataFrame({'label': labels, 'orthogroups': all_ogs, 'prots': all_prots, 'genus': genera})
+        mpl.use("Agg")
+        fig, axes = plt.subplots(1, 2, figsize=(15, 12))
+        # Count the number of different orthogroups in each genus and plot it
+        (
+            donors_df
+            .groupby('genus')
+            .orthogroups
+            .apply(lambda g: len(np.unique([v for s in g for v in s])))
+            .plot(kind='barh', ax=axes[0])
         )
-	ax[0].set_title("Overlap between our HGT calls and Clarke et al.")
-	vdf = merged.loc[~merged['query'].isnull(), ['ac', 'bact', 'amoeba']].astype(bool)
-        venn3(
-            subsets = (
-                len(vdf.query('    ac and not bact and not amoeba')), #A
-                len(vdf.query('not ac and     bact and not amoeba')), #B
-                len(vdf.query('    ac and     bact and not amoeba')), #AB
-                len(vdf.query('not ac and not bact and     amoeba')), #C
-                len(vdf.query('    ac and not bact and     amoeba')), #AC
-                len(vdf.query('not ac and     bact and     amoeba')), #BC
-                len(vdf.query('    ac and     bact and     amoeba')), #ABC
-            ),
-            set_labels = ('A. castellanii', 'Bacteria', 'Amoeba'),
-            ax=ax[1]
-        )
-	ax[1].set_title("Group distribution of HGT calls from Clarke et al.")
-	plt.savefig(output[0])
-        
+        donors_df['n_prots'] = donors_df.prots.apply(lambda x: len(np.unique(x)))
+        donors_df.plot(x='label', y='n_prots', kind='barh', ax=axes[1])
+        axes[0].set_title('Number of distinct orthogroups with putative xenologs per genus.')
+        axes[1].set_title('Number of putative xenologs per species.')
+        plt.savefig(output['plt'])
+        donors_df = donors_df.loc[:, ['genus', 'label', 'prots', 'orthogroups', 'n_prots']]
+        donors_df.prots = donors_df.prots.apply(lambda x: ','.join(x))
+        donors_df.orthogroups = donors_df.orthogroups.apply(lambda x: ','.join(x))
+        donors_df.to_csv(output['tbl'], sep='\t', index=False)
+
+
+
+
+# Compute similarity profile between HGT candidates and bacteria 
+# versus the rest of amoeba genes
+rule bact_similarity:
+    input:
+        join(TMP, 'merged', '{group}_orthogroup_seq_filtered.fa')
+    output:
+        join(OUT, 'orthofinder_blast', '{group}_orthogroup_bact.blast')
+    threads: NCPUS
+    params:
+        db = join(DB, 'blast', 'nr_v5', 'nr_v5')
+        #db = join(DB, 'blast', 'nr_v5', 'nr.v5')
+    singularity: 'docker://cmdoret/blast:2.9.0'
+    shell:
+        """
+        blastp -num_threads {threads} \
+               -max_target_seqs 5 \
+               -taxids 2 \
+               -db {params.db} \
+               -query {input} \
+               -outfmt 6 \
+               -out {output}
+        """
+
+rule compute_similarity_profile:
+    input:
+        hgt_sim = join(OUT, 'orthofinder_blast', 'hgt_orthogroup_bact.blast'),
+        bg_sim = join(OUT, 'orthofinder_blast', 'background_orthogroup_bact.blast')
+    output: join(OUT, 'orthofinder_blast', 'similarity_profile_bact.svg')
+    conda: "../envs/r.yaml"
+    shell: "Rscript scripts/02_similarity_profile.R {input.hgt_sim} {input.bg_sim} {output}"
+
 
 # Visualise distribution of sequence similarity between HGT predicted in v1 and v2 
 # vs bacterial genes
@@ -397,9 +452,54 @@ rule plot_similarity_hgt:
         plt.savefig(output[0])
 
 
-# GO enrichment analysis on HGT candidates
-rule go_enrichment:
-    input: join(OUT, 'hgt', 'hgt_stats.tsv')
-    output: join(OUT, 'go_enrich', 'hgt_go_enrich.tsv')
-    conda: '../envs/r.yaml'
-    shell: 'Rscript scripts/go_enrich.R {input} {output}'
+# Filter the best hit in the Neff proteome for every HGT
+rule filter_blast_hits:
+    input: join(OUT, 'blast', 'hgt_v1_vs_neff.blast')
+    output: join(OUT, 'blast', 'hgt_v1_vs_neff_filtered.blast')
+    run:
+        df = pd.read_csv(input[0], sep='\t', header=None, usecols=[0, 1, 10], names=['query', 'target', 'evalue'])
+        keep_idx = df.groupby('query')['evalue'].transform(min) == df['evalue']
+        df[keep_idx].to_csv(output[0], sep='\t', index=False)
+
+
+# Compute proportion of matching HGT between Clarke et al and our calls
+rule plot_overlap_hgt_v1_v2:
+    input:
+        v1 = join(OUT, 'blast', 'hgt_v1_vs_neff_filtered.blast'),
+        v2 = join(OUT, 'hgt', 'hgt_stats.tsv')
+    output: join(OUT, 'plots', 'v1_v2_hgt_overlap.svg')
+    run:
+        v1 = pd.read_csv(input['v1'], sep='\t')
+        v2 = pd.read_csv(input['v2'], sep='\t' )
+        v2 = v2.loc[v2.ID.str.contains("Neff"), :]
+        v2.ID = v2.ID.str.replace("Neff_", "")
+        v1.target = v1.target.str.replace('-T[0-9]+$', '')
+        merged = v1.merge(v2, left_on="target", right_on="ID", how='outer')
+        mpl.use('Agg')
+        fig, ax = plt.subplots(1, 2)
+        venn2(
+            subsets = (
+                ((merged.hgt != 1) & ~merged['query'].isnull()).sum(), #v1 only
+                (merged['query'].isnull() & (merged.hgt == 1)).sum(), #v2 only
+                ((merged.hgt == 1) & ~merged['query'].isnull()).sum(), #both v1 and v2
+            ),
+        set_labels = ("HGT_v1", "HGT_v2"),
+        ax=ax[0]
+        )
+        ax[0].set_title("Overlap between our HGT calls and Clarke et al.")
+        vdf = merged.loc[~merged['query'].isnull(), ['ac', 'bact', 'amoeba']].astype(bool)
+        venn3(
+            subsets = (
+                len(vdf.query('    ac and not bact and not amoeba')), #A
+                len(vdf.query('not ac and     bact and not amoeba')), #B
+                len(vdf.query('    ac and     bact and not amoeba')), #AB
+                len(vdf.query('not ac and not bact and     amoeba')), #C
+                len(vdf.query('    ac and not bact and     amoeba')), #AC
+                len(vdf.query('not ac and     bact and     amoeba')), #BC
+                len(vdf.query('    ac and     bact and     amoeba')), #ABC
+            ),
+            set_labels = ('A. castellanii', 'Bacteria', 'Amoeba'),
+            ax=ax[1]
+        )
+        ax[1].set_title("Group distribution of HGT calls from Clarke et al.")
+        plt.savefig(output[0])

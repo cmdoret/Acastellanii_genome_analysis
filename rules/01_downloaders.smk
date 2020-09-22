@@ -21,7 +21,7 @@ rule fetch_proteomes:
             print(f"No proteome found for {organism[0]}")
             pass
 
-# Remove redundant (99% identical) proteins from each proteome
+# Remove redundant (95% identical) proteins from each proteome
 rule cdhit_proteomes:
   input: join(OUT, 'proteomes', '{organism}_raw.fa')
   output: join(OUT, 'filtered_proteomes', '{organism}.fa')
