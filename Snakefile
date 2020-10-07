@@ -85,12 +85,8 @@ rule all:
         join(OUT, 'plots', 'gene_families_venn.svg'),
         join(OUT, 'plots', 'acastellanii_quast_report'),
         join(OUT, 'stats', 'annot_stats.tsv'),
-        join(OUT, 'plots', 'hgt_stats.svg'),
         join(OUT, 'plots', 'busco_comparison.svg'),
-        join(OUT, 'go_enrich', 'hgt_go_enrich.tsv'),
-        expand(join(OUT, 'plots', 'xenolog_species_{strain}.svg'), strain=samples.strain),
-        join(OUT, 'plots', 'v1_v2_hgt_overlap.svg'),
-	join(OUT, 'hgt', 'NEFF_v1_hgt.tsv')
+        expand(join(OUT, 'hgt', '{strain}_windows_hgt.tsv'), strain=samples.strain)
         #join(OUT, 'figures', 'hgt_similarity.svg'),
         #join(OUT, 'orthofinder_blast', 'similarity_profile_bact.svg'),
         #expand(join(OUT, 'go_enrich', '{amoeba}_enrich.txt'), amoeba="Neff"),
