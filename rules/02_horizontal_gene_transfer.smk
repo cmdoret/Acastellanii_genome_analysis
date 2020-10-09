@@ -71,8 +71,8 @@ rule blast_v1_hgt_vs_ac:
     shell:
         """
         makeblastdb -dbtype prot -in {params.v2_prots} -title neff -out {params.v2_db}
-        blastp -evalue 0.001 \
-               -outfmt 6 \
+        blastp -evalue 1e-30 \
+               -outfmt "6 qseqid sseqid pident evalue" \
                -db {params.v2_db} \
                -num_threads {threads} \
                -query {input.v1_hgt} > {output.blast}
@@ -82,33 +82,39 @@ rule blast_v1_hgt_vs_ac:
 rule filter_blast_hits:
     input: join(OUT, 'blast', 'hgt_v1_vs_{strain}.blast')
     output: join(OUT, 'blast', 'hgt_v1_vs_{strain}_filtered.blast')
+    params:
+        pident = 95
     run:
-        df = pd.read_csv(input[0], sep='\t', header=None, usecols=[0, 1, 10], names=['query', 'target', 'evalue'])
-        keep_idx = df.groupby('query')['evalue'].transform(min) == df['evalue']
-        df[keep_idx].to_csv(output[0], sep='\t', index=False)
+        df = pd.read_csv(
+            input[0],
+            sep='\t',
+            header=None,
+            names=['query', 'target', 'pident', 'evalue']
+        )
+        keep_idx = df.groupby('query')['pident'].transform(max) == df['pident']
+        # For each query HGT, retain the match with highest sequence identity
+        df = df[keep_idx]
+        # Filter to keep only matches with > 95% identity
+        df.loc[df.pident > params['pident']].to_csv(output[0], sep='\t', index=False)
 
 # retrieve coordinates of lifted hgt and put a hgt (1/0) label on each gene annotation
 rule get_hgt_coords_v2:
     input:
         blast = join(OUT, 'blast', 'hgt_v1_vs_{strain}_filtered.blast'),
-        annot = lambda w: samples.annotations[w.strain]
+        annot = join(OUT, 'stats', 'annot_stats.tsv')
     output: join(OUT, 'hgt', '{strain}_genes_hgt.bed')
     run:
         blast = pd.read_csv(input['blast'], sep='\t')
-        annot = pd.read_csv(
-            input['annot'],
-            sep='\t',
-            comment='#',
-            usecols=[0, 2, 3, 4, 8],
-            names=['chrom', 'elem', 'start', 'end', 'geneID'],
-        )
-        annot = annot.loc[annot.elem == 'gene', :]
+        annot = pd.read_csv( input['annot'], sep='\t')
+        strain = wildcards['strain']
+        annot = annot.loc[annot.ID.str.startswith(strain), :]
+        annot.ID = annot.ID.str.replace(f"{strain}_", "")
+        annot.chrom= annot.chrom.str.replace(f"{strain}_", "")
         blast['hgt'] = 1
         blast.target = blast.target.str.replace('-T1', '')
-        annot.geneID = annot.geneID.str.replace(r'.*ID=([^;]*);.*', lambda m: m.group(1))
-        annot = blast.merge(annot, how='right', left_on='target', right_on='geneID')
+        annot = blast.merge(annot, how='right', left_on='target', right_on='ID')
         annot.hgt = annot.hgt.fillna(0).astype(int)
-        annot = annot.loc[:, ['chrom', 'start', 'end', 'geneID', 'hgt']]
+        annot = annot.loc[:, ['chrom', 'start', 'end', 'ID', 'hgt', 'n_exon']]
         annot.to_csv(output[0], sep='\t', header=None, index=False)
 
 
@@ -121,11 +127,9 @@ rule windows_inter_hgt:
     threads: 6
     shell:
         """
-        echo -e "chrom\tstart\tend\tGC\tGCSKEW\tATSKEW\tENTRO\t2MER\t3MER\t4MER" > {output}
+        echo -e "chrom\tstart\tend\tgeneID\tHGT\tNEXON\tGC\tGCSKEW\tATSKEW\tENTRO\t2MER\t3MER\t4MER" > {output}
         bedtools intersect -a {input.win} -b {input.hgt} -wb \
             | sort --parallel={threads} -k11,11 -k12,12n \
-            | bedtools groupby -g 11,12,13 -c 4,5,6,7,8,9,10 -o mean \
+            | bedtools groupby -g 11,12,13,14,15,16 -c 4,5,6,7,8,9,10 -o mean \
             | sort --parallel={threads} -k1,1 -k2,2n >> {output}
         """
-
-rule explore_genome_hgt:
