@@ -174,3 +174,16 @@ rule plot_busco:
         plt.ylabel('Strain')
         plt.savefig(str(output))
 
+
+# Compute chromosome sizes in new assembly
+rule get_chrom_sizes:
+    params:
+        genome = lambda w: samples.genome[w.strain],
+    output: join(TMP, '{strain}_chroms.sizes')
+    shell:
+        """
+        awk -vOFS='\t' '
+            /^>/ {{if (seqlen){{print seqlen}}; printf "%s\t",substr($0, 2) ;seqlen=0;next; }}
+            {{ seqlen += length($0)}}END{{print seqlen}}
+            ' {params.genome} > {output}
+        """

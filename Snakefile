@@ -86,6 +86,8 @@ rule all:
         join(OUT, 'plots', 'acastellanii_quast_report'),
         join(OUT, 'stats', 'annot_stats.tsv'),
         join(OUT, 'plots', 'busco_comparison.svg'),
+        expand(join(OUT, 'plots', 'virus_{strain}.svg'), strain=samples.strain),
+        expand(join(OUT, 'virus', '{strain}_summary.tsv'), strain=samples.strain),
         expand(join(OUT, 'hgt', '{strain}_windows_hgt.tsv'), strain=samples.strain)
         #join(OUT, 'figures', 'hgt_similarity.svg'),
         #join(OUT, 'orthofinder_blast', 'similarity_profile_bact.svg'),
@@ -100,6 +102,7 @@ include: 'rules/01_downloaders.smk'
 include: 'rules/02_horizontal_gene_transfer.smk'
 include: 'rules/03_rdna.smk'
 include: 'rules/04_synteny.smk'
+include: 'rules/05_viruses.smk'
 
 
 # 10 GO enrichment test for HGT candidates
