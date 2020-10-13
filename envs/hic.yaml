@@ -1,0 +1,12 @@
+name: hic
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+  - r
+dependencies:
+  - chromosight=1.3.3=py_0
+  - pip
+  - pip:
+    - coolpuppy==0.9.5
+    - cython==0.29.21

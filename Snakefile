@@ -87,7 +87,8 @@ rule all:
         join(OUT, 'stats', 'annot_stats.tsv'),
         join(OUT, 'plots', 'busco_comparison.svg'),
         expand(join(OUT, 'plots', 'virus_{strain}.svg'), strain=samples.strain),
-        expand(join(OUT, 'virus', '{strain}_summary.tsv'), strain=samples.strain),
+        expand(join(OUT, 'virus', 'spatial', '{strain}_regions_pileup.txt'), strain=samples.strain),
+        expand(join(OUT, 'virus', 'spatial', '{strain}_borders.tsv'), strain=samples.strain),
         expand(join(OUT, 'hgt', '{strain}_windows_hgt.tsv'), strain=samples.strain)
         #join(OUT, 'figures', 'hgt_similarity.svg'),
         #join(OUT, 'orthofinder_blast', 'similarity_profile_bact.svg'),

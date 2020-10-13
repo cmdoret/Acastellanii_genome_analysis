@@ -187,3 +187,14 @@ rule get_chrom_sizes:
             {{ seqlen += length($0)}}END{{print seqlen}}
             ' {params.genome} > {output}
         """
+
+
+# Plot scaffolds
+rule viz_scaffolds:
+    input:
+        scf = join(TMP, '{strain}_chrom.sizes'),
+        hgt = join(),
+        vir = join(),
+        rib = join()
+    output: join(OUT, 'plots', 'scaffolds.svg')
+    script: "../scripts/00_plot_scaffolds.R"

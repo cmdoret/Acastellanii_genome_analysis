@@ -38,9 +38,81 @@ rule parse_virus_matches:
         """
 
 rule aggregate_virus_matches:
-    input:
-        virus = join(OUT, 'virus', '{strain}_summary.tsv'),
-        chroms = join(TMP, '{strain}_chroms.sizes'),
-        hgt = join(OUT, 'hgt', '{strain}_genes_hgt.bed')
+    input: join(OUT, 'virus', '{strain}_summary.tsv')
     output: join(OUT, 'plots', 'virus_{strain}.svg')
-    shell: "python ./scripts/05_aggregate_viruses.py {input.virus} {input.chroms} {input.hgt} {output}"
+    run:
+        import matplotlib.pyplot as plt
+        import seaborn as sns
+        import matplotlib as mpl
+        mpl.use("Agg")
+        vir = pd.read_csv(
+            input[0], sep="\t", names=["chrom", "start", "end", "virus", "ident"]
+            )
+        vir["seqlen"] = vir.end - vir.start
+        # Amount of each virus inserted
+        sns.scatterplot(data=vir, x="seqlen", y="ident", hue="virus")
+        plt.savefig(output[0])
+
+# Merge overlapping and neighbouring viral segments into viral "regions"
+rule merge_virus_segments:
+    input: join(OUT, 'virus', '{strain}_summary.tsv')
+    output: join(OUT, 'virus', '{strain}_regions.tsv')
+    params:
+        neigh_dist = 500000
+    shell:
+        """
+        sort -k1,1 -k2,2n {input} \
+            | bedtools merge -o mean -c 5 -i - -d {params.neigh_dist} \
+            > {output}
+        """
+
+# Visualise the 3D structure around viral regions
+rule viral_regions_pileup:
+    input: join(OUT, 'virus', '{strain}_regions.tsv')
+    output:
+        tbl = join(OUT, 'virus', 'spatial', '{strain}_regions_pileup.txt'),
+        fig = join(OUT, 'virus', 'spatial', '{strain}_regions_pileup.svg')
+    params:
+        cool = lambda w: samples.cool[w.strain] + "::/resolutions/8000"
+    conda: "../envs/hic.yaml"
+    shell:
+        """
+        # Discard coordinates with chromosomes absent from the cool file
+        # and get the bed file into 2d coordinates
+        cut -f1-3 {input} \
+            | grep -f <(cooler dump -t chroms {params.cool} | awk '{{print $1"\t"}}') \
+            | awk -vOFS='\t' '{{print $0,$1,$2+10000,$3+10000}}' \
+            | coolpup.py {params.cool} \
+                   - \
+                   --nshifts 10 \
+                   --mindist 0 \
+                   --minshift 100000 \
+                   --outname {output.tbl} \
+                   --log WARNING
+        plotpup.py {output.tbl} \
+                   --col_names {wildcards.strain} \
+                   --enrichment 0 \
+                   --vmin 1 \
+                   --output {output.fig}                  
+        """
+rule viral_regions_borders:
+    input: join(OUT, 'virus', '{strain}_regions.tsv')
+    output: multiext(join(OUT, 'virus', 'spatial', '{strain}_borders'), '.tsv', '.json', '.pdf')
+    params:
+        cool = lambda w: samples.cool[w.strain] + "::/resolutions/8000",
+        base = join(OUT, 'virus', 'spatial', '{strain}_borders'),
+        tpos = temp(join(TMP, '{strain}_virpos.tmp'))
+    threads: 12
+    shell:
+        """
+        # Convert the bed file int 2d coordinates.
+        cut -f1-3 {input} | awk -vOFS='\t' '{{print $0,$0}}' > {params.tpos}
+        chromosight quantify --pattern=borders \
+                             --threads {threads} \
+                             --perc-zero=60 \
+                             --perc-undetected=60 \
+                             --win-size=31 \
+                             {params.tpos} \
+                             {params.cool} \
+                             {params.base}  
+        """
