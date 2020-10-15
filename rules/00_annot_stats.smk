@@ -188,13 +188,27 @@ rule get_chrom_sizes:
             ' {params.genome} > {output}
         """
 
+rule agg_features:
+    input:
+        hgt = join(OUT, 'hgt', '{strain}_genes_hgt.bed'),
+        vir = join(OUT, 'virus', '{strain}_summary.tsv')
+    output: join(TMP, '{strain}_features.bed')
+    params:
+        rdna = lambda w: samples.rdna[w.strain]
+    shell:
+        """
+        grep -v "^#" {params.rdna} | awk -vOFS='\t' '{{print $1,$4,$5,$9}}' > {output}
+        awk -vOFS='\t' '$5 == 1 {{print $1,$2,$3,"HGT"}}' {input.hgt} >> {output}
+        awk -vOFS='\t' '{{print $1,$2,$3,"virus"}}' {input.vir} >> {output}
+        """
 
 # Plot scaffolds
 rule viz_scaffolds:
+    log: join(OUT, 'log', '{strain}_viz_scaffolds.log')
     input:
-        scf = join(TMP, '{strain}_chrom.sizes'),
-        hgt = join(),
-        vir = join(),
-        rib = join()
-    output: join(OUT, 'plots', 'scaffolds.svg')
-    script: "../scripts/00_plot_scaffolds.R"
+        features = join(TMP, '{strain}_features.bed')
+    output: join(OUT, 'plots', '{strain}_scaffolds.svg')
+    params:
+        genome = lambda w: samples.genome[w.strain],
+        title =  lambda w: f"A. castellanii {w.strain}"
+    script: "../scripts/00_plot_karyo.py"
