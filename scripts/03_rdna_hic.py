@@ -17,6 +17,10 @@ cool_path = sys.argv[1]
 rdna_path = sys.argv[2]
 out_path = sys.argv[3]
 
+# Discard contigs smaller than this size
+# Note: assumes chromosomes are sorted by size in the cool file
+MIN_SIZE = 100000
+
 ## LOAD INPUT FILES
 c = cooler.Cooler(cool_path)
 gff = pd.read_csv(rdna_path, sep="\t", comment="#", usecols=range(9))
@@ -33,29 +37,37 @@ gff.columns = [
 ]
 
 ## EXTRACT COOL DATA
-mat = c.pixels()[:]
-bins = c.bins()
 chroms = c.chroms()[:]
+# Discard all chromosomes after the first shorter than MIN_SIZE
+chroms["include"] = chroms.length > MIN_SIZE
+stop_bin = c.extent(chroms.loc[np.where(~chroms.include)[0][0], "name"])[1]
+bins = c.bins()
 
-# Remove chromosomes that are absent from cool
-gff = gff.loc[np.isin(gff.seqname, chroms['name']), :]
+# Remove chromosomes that are absent from cool or too small
+gff = gff.loc[np.isin(gff.seqname, chroms.loc[chroms.include, "name"]), :]
 
 ## TRANSFORM
 
 # Transform rDNA coords to bins
 gff["minbin"] = gff.apply(
-    lambda r: np.min(bins.fetch(f"{r.seqname}:{r.start}-{r.end}").index.values), axis=1
+    lambda r: np.min(
+        bins.fetch(f"{r.seqname}:{r.start}-{r.end}").index.values
+    ),
+    axis=1,
 )
 
 gff["maxbin"] = gff.apply(
-    lambda r: np.max(bins.fetch(f"{r.seqname}:{r.start}-{r.end}").index.values), axis=1
+    lambda r: np.max(
+        bins.fetch(f"{r.seqname}:{r.start}-{r.end}").index.values
+    ),
+    axis=1,
 )
 
 gff = gff.drop_duplicates(subset=["attribute", "minbin", "maxbin"])
 
 ## VISUALIZE
-mat = c.matrix(balance=False)[:]
-np.fill_diagonal(mat, 0)
+mat = c.matrix(balance=False)[:stop_bin, :stop_bin]
+# np.fill_diagonal(mat, 0)
 
 # Define color saturation threshold
 # sat_thr = np.percentile(mat[mat > 0], 85)
@@ -85,7 +97,7 @@ legend_entries = [
 ]
 plt.legend(handles=legend_entries, loc="upper right")
 # mat[np.isnan(mat)] = 0
-ax1.imshow(np.log(mat), cmap="Reds")
+ax1.imshow(np.log(mat), cmap="Reds", interpolation="none", rasterized=True)
 
 # Add vertical lines to line plots at rdna positions
 for r in gff.iterrows():
@@ -99,14 +111,16 @@ for r in gff.iterrows():
 
 # Add chromosome grid
 for r in chroms.iterrows():
-    ax2.axvline(x=c.extent(r[1]["name"])[1], alpha=0.4, c="grey", lw=0.5)
-    ax3.axvline(x=c.extent(r[1]["name"])[1], alpha=0.4, c="grey", lw=0.5)
-    ax4.axvline(x=c.extent(r[1]["name"])[1], alpha=0.4, c="grey", lw=0.5)
+    if r[1].include:
+        ax2.axvline(x=c.extent(r[1]["name"])[1], alpha=0.4, c="grey", lw=0.5)
+        ax3.axvline(x=c.extent(r[1]["name"])[1], alpha=0.4, c="grey", lw=0.5)
+        ax4.axvline(x=c.extent(r[1]["name"])[1], alpha=0.4, c="grey", lw=0.5)
 
 
 # Subset bins containing rRNA
 rdna_bins = {
-    sub: np.unique(gff.maxbin[gff.attribute == sub]) for sub in np.unique(gff.attribute)
+    sub: np.unique(gff.maxbin[gff.attribute == sub])
+    for sub in np.unique(gff.attribute)
 }
 # Compute contact sum per bin for each subunit
 rdna_sig = {}
@@ -114,8 +128,14 @@ rdna_sig["28S"] = mat[rdna_bins["28s_rRNA"], :].mean(axis=0)
 rdna_sig["18S"] = mat[rdna_bins["18s_rRNA"], :].mean(axis=0)
 rdna_sig["5S"] = mat[rdna_bins["8s_rRNA"], :].mean(axis=0)
 
-ax2.plot(range(mat.shape[0]), np.log10(rdna_sig["28S"]), label="28S", lw=0.5, c="g")
-ax3.plot(range(mat.shape[0]), np.log10(rdna_sig["18S"]), label="18S", lw=0.5, c="b")
-ax4.plot(range(mat.shape[0]), np.log10(rdna_sig["5S"]), label="5S", lw=0.5, c="r")
+ax2.plot(
+    range(mat.shape[0]), np.log10(rdna_sig["28S"]), label="28S", lw=0.5, c="g"
+)
+ax3.plot(
+    range(mat.shape[0]), np.log10(rdna_sig["18S"]), label="18S", lw=0.5, c="b"
+)
+ax4.plot(
+    range(mat.shape[0]), np.log10(rdna_sig["5S"]), label="5S", lw=0.5, c="r"
+)
 
-fig.savefig(out_path, dpi=900)
+fig.savefig(out_path, dpi=2500)
