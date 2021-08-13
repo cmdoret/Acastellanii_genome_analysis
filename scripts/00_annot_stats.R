@@ -26,7 +26,7 @@ load_gff <- function(in_gff, name){
 
     ### Clean data
     gff <- gff %>% mutate(attributes=gsub("Parent=", "ID=", attributes)) %>%
-        mutate(ID=str_extract(attributes, 'ID=[^;]*')) %>%
+        mutate(ID=str_extract(attributes, 'ID=[^;\\.]*')) %>%
         mutate(ID=gsub("=[a-zA-Z]{1,}:", "=", ID)) %>%
         mutate(ID=sapply(ID, function(x){str_split(x,regex('[=-]'))[[1]][2]})) %>%
         mutate(name=name)
@@ -42,10 +42,11 @@ gff_gene_len <- gff %>%
     filter(type == 'gene') %>%
     mutate(gene_len = end - start)
 
-# N exon / gene
+# N exon / gene (drop duplicated exons)
 gff_exons <- gff %>% 
     filter(type != 'gene') %>%
     group_by(ID) %>%
+    distinct(chrom, start, end, type, .keep_all=T) %>%
     mutate(n_exon=sum(type == 'exon')) %>%
     filter(type == 'mRNA') %>% 
     mutate(mrna_len = end - start)
