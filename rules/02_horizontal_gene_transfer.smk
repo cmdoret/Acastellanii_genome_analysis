@@ -108,10 +108,10 @@ rule get_hgt_coords_v2:
         annot = pd.read_csv( input['annot'], sep='\t')
         strain = wildcards['strain']
         annot = annot.loc[annot.ID.str.startswith(strain), :]
-        annot.ID = annot.ID.str.replace(f"{strain}_", "")
+        annot.ID = annot.ID.str.replace(f"{strain}"+r"_([a-zA-Z0-9_]*).*", r"\1")
         annot.chrom= annot.chrom.str.replace(f"{strain}_", "")
         blast['hgt'] = 1
-        blast.target = blast.target.str.replace('-T1', '')
+        blast.target = blast.target.str.replace(r'([a-zA-Z0-9_]*).*', r'\1')
         annot = blast.merge(annot, how='right', left_on='target', right_on='ID')
         annot.hgt = annot.hgt.fillna(0).astype(int)
         annot = annot.loc[:, ['chrom', 'start', 'end', 'ID', 'hgt', 'n_exon']]

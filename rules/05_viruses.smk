@@ -58,7 +58,7 @@ rule merge_virus_segments:
     input: join(OUT, 'virus', '{strain}_summary.tsv')
     output: join(OUT, 'virus', '{strain}_regions.tsv')
     params:
-        neigh_dist = 500000
+        neigh_dist = 10000
     shell:
         """
         sort -k1,1 -k2,2n {input} \
