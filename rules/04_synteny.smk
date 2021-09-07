@@ -90,3 +90,29 @@ rule circos:
                     -links {input.mcsx} | sed 's/lgrey=$//' > {params.circos_dir}/bundles.txt
         circos -conf {params.circos_dir}/circos.conf -outputfile {output}
         """
+
+# Measure sequence divergence between both strains
+# We use gap-compressed nucleotide divergence (i.e.
+# Proportion of mismatch in aligned blocks)
+rule get_divergence:
+    input:
+        c3 = join(TMP, 'renamed', 'C3_genome.fa'),
+        neff = join(TMP, 'renamed', 'Neff_genome.fa'),
+    output:
+        paf = join(TMP, 'c3_vs_neff.paf'),
+        div = join(OUT, 'div', 'c3_vs_neff_gap_compressed_div.bedgraph')
+    conda: '../envs/genomepy.yaml'
+    shell:
+        """
+        minimap2 -c {input.neff} {input.c3} -x map-ont \
+        > {output.paf}
+        python ./scripts/04_compute_seq_divergence.py \
+            {output.paf} \
+            {output.div}
+        """
+
+rule plot_divergence:
+    input: join(OUT, 'div', 'c3_vs_neff_gap_compressed_div.bedgraph')
+    output: join(OUT, 'plots', 'c3_vs_neff_gap_compressed_div.svg')
+    conda: '../envz/viz.yaml'
+    script: "../scripts/04_plot_seq_divergence.py"
