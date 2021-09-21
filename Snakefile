@@ -106,6 +106,7 @@ include: 'rules/02_horizontal_gene_transfer.smk'
 include: 'rules/03_rdna.smk'
 include: 'rules/04_synteny.smk'
 include: 'rules/05_viruses.smk'
+include: 'rules/06_phylogeny.smk'
 
 
 # 10 GO enrichment test for HGT candidates
