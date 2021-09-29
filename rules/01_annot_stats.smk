@@ -48,7 +48,7 @@ rule amoeba_annot_stats:
         tbl = join(OUT, 'stats', 'annot_stats.tsv'),
         plt = join(OUT, 'plots', 'annot_stats.svg')
     conda: '../envs/r.yaml'
-    shell: "Rscript scripts/00_annot_stats.R {input.v1} {input.neff} {input.c3} {output.tbl} {output.plt}"
+    shell: "Rscript scripts/01_annot_stats.R {input.v1} {input.neff} {input.c3} {output.tbl} {output.plt}"
 
 
 # 00b Visualise assembly stats
@@ -62,7 +62,7 @@ rule plot_assembly:
     shell:
         """
         assembly-stats -t {input} {params.neff_v1} > {params.assembly_tbl}
-        Rscript scripts/00_assembly_stats.R {params.assembly_tbl} {output}
+        Rscript scripts/01_assembly_stats.R {params.assembly_tbl} {output}
         """
 
 rule quast_report:
@@ -108,7 +108,7 @@ rule plot_busco:
         c3 = join(OUT, 'busco', 'C3_summary.tsv')
     output: join(OUT, 'plots', 'busco_comparison.svg')
     conda: '../envs/viz.yaml'
-    script: '../scripts/00_plot_busco.py'
+    script: '../scripts/01_plot_busco.py'
 
 
 # Compute chromosome sizes in new assembly

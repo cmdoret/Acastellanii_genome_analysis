@@ -1,18 +1,18 @@
 
 # Retrieve HGT sequences from Neff v1 publication and translate them
 rule get_v1_hgt_fa:
+    input: join(IN, 'cds', 'NEFF_v1.43.fa')
     output: join(OUT, 'hgt', 'NEFF_v1_hgt_cds.fa')
     params:
         hgt_ids = join(IN, 'misc', 'NEFF_v1_HGT.tsv'),
-        cds = join(IN, 'cds', 'NEFF_v1.43.fa')
     conda: '../envs/seqkit.yaml'
-    shell: "seqkit grep -r -f {params.hgt_ids} {params.cds} | seqkit translate > {output}"
+    shell: "seqkit grep -r -f {params.hgt_ids} {input} | seqkit translate > {output}"
 
 # Same for the gff3 file...
 rule get_v1_hgt_gff:
+    input: join(IN, 'annotations', 'NEFF_v1.43.gff'),
     output: join(OUT, 'hgt', 'NEFF_v1_hgt.tsv')
     params:
-        gff = join(IN, 'annotations', 'NEFF_v1.43.gff'),
         hgt = join(IN, 'misc', 'NEFF_v1_HGT.tsv')
     script: '../scripts/02_get_v1_hgt_gff.py'
 

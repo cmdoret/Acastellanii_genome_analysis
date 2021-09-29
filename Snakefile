@@ -72,8 +72,8 @@ rule all:
 
 
 
-include: 'rules/00_annot_stats.smk'
-include: 'rules/01_downloaders.smk'
+include: 'rules/00_downloaders.smk'
+include: 'rules/01_annot_stats.smk'
 include: 'rules/02_horizontal_gene_transfer.smk'
 include: 'rules/03_rdna.smk'
 include: 'rules/04_synteny.smk'

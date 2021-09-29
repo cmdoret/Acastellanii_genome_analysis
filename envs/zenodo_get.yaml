@@ -1,0 +1,9 @@
+name: zenodo_get
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - pip=21.2.4
+  - python>=3.7
+  - pip:
+    - zenodo_get

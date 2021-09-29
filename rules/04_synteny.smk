@@ -52,7 +52,7 @@ rule prep_circos:
     input:
         ref = join(TMP, 'merged', 'genome.fa'),
         mcscx_flag = join(OUT, 'MCScanX', 'MCScanX.done')
-    output: join(IN, 'misc', 'circos_conf', 'mcsx.txt')
+    output: join(TMP, 'misc', 'circos_conf', 'mcsx.txt')
     params:
         mcsx_prefix = join(OUT, 'MCScanX', 'MCScanX_in'),
         circos_dir = join(TMP, 'misc', 'circos_conf')
@@ -60,8 +60,8 @@ rule prep_circos:
 
 # Filter out links that involve chromosomes absent from karyotype (e.g. too short)
 rule filter_links:
-    input: join(IN, 'misc', 'circos_conf', 'mcsx.txt')
-    output: join(IN, 'misc', 'circos_conf', 'mcsx_filtered.txt')
+    input: join(TMP, 'misc', 'circos_conf', 'mcsx.txt')
+    output: join(TMP, 'misc', 'circos_conf', 'mcsx_filtered.txt')
     params:
         circos_dir = join(TMP, 'misc', 'circos_conf')
     run:
@@ -115,5 +115,5 @@ rule get_divergence:
 rule plot_divergence:
     input: join(OUT, 'div', 'c3_vs_neff_gap_compressed_div.bedgraph')
     output: join(OUT, 'plots', 'c3_vs_neff_gap_compressed_div.svg')
-    conda: '../envz/viz.yaml'
+    conda: '../envs/viz.yaml'
     script: "../scripts/04_plot_seq_divergence.py"

@@ -1,7 +1,7 @@
 # Retrieve informations about laterally transferred genes in Neff
 import re
 
-hgt_ids = {i.strip() for i in open(snakemake.params["hgt"])}
+hgt_ids = {i.strip() for i in open(snakemake.input[0])}
 outf = open(snakemake.output[0], "w")
 with open(snakemake.params["gff"], "r") as gff:
     hgt = False

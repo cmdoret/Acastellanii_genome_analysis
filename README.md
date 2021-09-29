@@ -1,7 +1,5 @@
 # _Acanthamoeba castellanii_ genome analysis
 
-> TODO: Define conda environments for the remaining rules to minimize dependencies
-
 ## Description 
 This repository contains scripts and documentation related to the analysis and comparison of the _Acanthamoeba castellanii_ genome from strains C3 and Neff.
 

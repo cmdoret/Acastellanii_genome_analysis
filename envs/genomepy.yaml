@@ -12,6 +12,7 @@ dependencies:
   - click
   - colorama
   - fd-find
+  - genomepy
   - norns>=0.1.5
   - psutil
   - pyfaidx>=0.5.7

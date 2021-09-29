@@ -17,11 +17,11 @@ rule get_viruse:
 # Align virus to amoeba genome
 rule map_virus_amoeba:
     input:
-        virus = join(VIR_GENOMES, '{virus}')
-    output: join(OUT, 'virus', '{strain}', '{virus}.paf')
-    params:
+        virus = join(VIR_GENOMES, '{virus}'),
         amoeba = lambda w: samples.genome[w.strain]
+    output: join(OUT, 'virus', '{strain}', '{virus}.paf')
     threads: 6
+    conda: '../envs/genomepy.yaml'
     shell: "minimap2 -xasm20 -t {threads} {params.amoeba} {input.virus}/*/*fa > {output}"
 
 
@@ -32,6 +32,7 @@ rule parse_virus_matches:
     output: join(OUT, 'virus', '{strain}_summary.tsv')
     params:
         pafdir = lambda w: join(OUT, 'virus', w.strain)
+    conda: '../envs/genomepy.yaml'
     shell:
         """
         fd ".*paf" {params.pafdir} -x awk -vOFS='\t' -vvir={{/.}} '{{print $6,$8,$9,vir,$10/$11}}' {{}} > {output}
@@ -59,6 +60,7 @@ rule merge_virus_segments:
     output: join(OUT, 'virus', '{strain}_regions.tsv')
     params:
         neigh_dist = 10000
+    conda: '../envs/genomepy.yaml'
     shell:
         """
         sort -k1,1 -k2,2n {input} \
@@ -103,6 +105,7 @@ rule viral_regions_borders:
         base = join(OUT, 'virus', 'spatial', '{strain}_borders'),
         tpos = temp(join(TMP, '{strain}_virpos.tmp'))
     threads: 12
+    conda: "../envs/hic.yaml"
     shell:
         """
         # Convert the bed file int 2d coordinates.

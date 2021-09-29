@@ -4,12 +4,13 @@
 # Note it takes for threads, but only uses 1 in practice. This is to limit the
 # number of instances running (e.g. 3 on 12 threads and avoid spamming ncbi
 rule fetch_proteomes:
-    output: temp(join(OUT, 'proteomes', '{organism}_raw.fa'))
+    output: join(OUT, 'proteomes', '{organism}_raw.fa')
     params:
         org = organisms
     threads: 4
     conda: '../envs/viz.yaml'
-    script: '../scripts/01_fetch_proteomes.py'
+    script: '../scripts/00_fetch_proteomes.py'
+
 # Remove redundant (99% identical) proteins from each proteome to discard duplicates
 rule cdhit_proteomes:
   input: join(OUT, 'proteomes', '{organism}_raw.fa')
@@ -18,6 +19,29 @@ rule cdhit_proteomes:
     sim = 0.99
   conda: '../envs/cdhit.yaml'
   shell: 'cd-hit -i {input} -o {output} -c {params.sim} -M 0'
+
+# Download data assets from zenodo record
+rule get_zenodo_assets:
+  output:
+    join(IN, 'genomes', 'NEFF_v1.fa'),
+    join(IN, 'annotations', 'NEFF_v1.43.gff'),
+    join(IN, 'cds', 'NEFF_v1.43.fa'),
+    expand(join(IN, 'genomes', '{strain}_assembly.fa'), strain=['Neff', 'C3']),
+    expand(join(IN, 'annotations', '{strain}_annotations.gff'), strain=['Neff', 'C3']),
+    expand(join(IN, 'proteomes', '{strain}_proteins.fa'), strain=['Neff', 'C3']),
+    expand(join(IN, 'annotations', 'rnammer', '{strain}.gff'), strain=['Neff', 'C3']),
+    expand(join(IN, 'cds', '{strain}_cds.fa'), strain=['Neff', 'C3']),
+    expand(join(IN, 'cool', '{strain}.mcool'), strain=['Neff', 'C3']),
+    url_tbl = temp(join(TMP, 'zenodo_urls.tsv'))
+  conda: '../envs/zenodo_get.yaml'
+  params:
+    in_dir = IN
+  shell:
+    """
+    zenodo_get -d https://doi.org/10.5281/zenodo.5507417 -w {output.url_tbl}
+    wget $(grep "shared_assets" {output.url_tbl}) -o shared_assets.tar.gz
+    tar xzvf shared_assets.tar.gz --directory={params.in_dir}
+    """
 
 # Download bacterial and viral genomes from interesting species
 #rule fetch_genomes:
