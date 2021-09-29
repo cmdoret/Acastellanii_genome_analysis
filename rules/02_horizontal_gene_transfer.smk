@@ -1,7 +1,7 @@
 
 # Retrieve HGT sequences from Neff v1 publication and translate them
 rule get_v1_hgt_fa:
-    input: join(IN, 'cds', 'NEFF_v1.43.fa')
+    input: join(SHARED, 'cds', 'NEFF_v1.43.fa')
     output: join(OUT, 'hgt', 'NEFF_v1_hgt_cds.fa')
     params:
         hgt_ids = join(IN, 'misc', 'NEFF_v1_HGT.tsv'),
@@ -10,7 +10,7 @@ rule get_v1_hgt_fa:
 
 # Same for the gff3 file...
 rule get_v1_hgt_gff:
-    input: join(IN, 'annotations', 'NEFF_v1.43.gff'),
+    input: join(SHARED, 'annotations', 'NEFF_v1.43.gff'),
     output: join(OUT, 'hgt', 'NEFF_v1_hgt.tsv')
     params:
         hgt = join(IN, 'misc', 'NEFF_v1_HGT.tsv')

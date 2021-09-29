@@ -1,3 +1,3 @@
 strain	genome	cds	proteome	annotations	cool	rdna
-Neff	data/input/genomes/Neff_assembly.fa	data/input/cds/Neff_cds.fa	data/input/proteomes/Neff_proteins.fa	data/input/annotations/Neff_annotations.gff	data/input/cool/Neff.mcool	data/input/annotations/rnammer/Neff.gff
-C3	data/input/genomes/C3_assembly.fa	data/input/cds/C3_cds.fa	data/input/proteomes/C3_proteins.fa	data/input/annotations/C3_annotations.gff	data/input/cool/C3.mcool	data/input/annotations/rnammer/C3.gff
+Neff	data/input/shared_assets/genomes/Neff_assembly.fa	data/input/shared_assets/cds/Neff_cds.fa	data/input/shared_assets/proteomes/Neff_proteins.fa	data/input/shared_assets/annotations/Neff_annotations.gff	data/input/shared_assets/hic/Neff.mcool	data/input/shared_assets/annotations/rnammer/Neff.gff
+C3	data/input/shared_assets/genomes/C3_assembly.fa	data/input/shared_assets/cds/C3_cds.fa	data/input/shared_assets/proteomes/C3_proteins.fa	data/input/shared_assets/annotations/C3_annotations.gff	data/input/shared_assets/hic/C3.mcool	data/input/shared_assets/annotations/rnammer/C3.gff

@@ -35,9 +35,9 @@ organisms['clean_name'] = organisms['name'].apply(lambda n: n.lower().replace(" 
 OUT = config['out_dir']
 TMP = config['tmp_dir']
 IN = config['in_dir']
-GENOMES = join(IN, 'genomes')
+SHARED = join(IN, 'shared_assets')
+GENOMES = join(SHARED, 'genomes')
 DB = join(IN, 'db')
-CIRCOS = join(IN, 'misc', 'circos_conf')
 
 ## WILDCARD CONSTRAINTS
 wildcard_constraints:

@@ -8,6 +8,7 @@ rule fetch_proteomes:
     params:
         org = organisms
     threads: 4
+    priority: 50
     conda: '../envs/viz.yaml'
     script: '../scripts/00_fetch_proteomes.py'
 
@@ -23,24 +24,25 @@ rule cdhit_proteomes:
 # Download data assets from zenodo record
 rule get_zenodo_assets:
   output:
-    join(IN, 'genomes', 'NEFF_v1.fa'),
-    join(IN, 'annotations', 'NEFF_v1.43.gff'),
-    join(IN, 'cds', 'NEFF_v1.43.fa'),
-    expand(join(IN, 'genomes', '{strain}_assembly.fa'), strain=['Neff', 'C3']),
-    expand(join(IN, 'annotations', '{strain}_annotations.gff'), strain=['Neff', 'C3']),
-    expand(join(IN, 'proteomes', '{strain}_proteins.fa'), strain=['Neff', 'C3']),
-    expand(join(IN, 'annotations', 'rnammer', '{strain}.gff'), strain=['Neff', 'C3']),
-    expand(join(IN, 'cds', '{strain}_cds.fa'), strain=['Neff', 'C3']),
-    expand(join(IN, 'cool', '{strain}.mcool'), strain=['Neff', 'C3']),
-    url_tbl = temp(join(TMP, 'zenodo_urls.tsv'))
+    join(SHARED, 'genomes', 'NEFF_v1.fa'),
+    join(SHARED, 'annotations', 'NEFF_v1.43.gff'),
+    join(SHARED, 'cds', 'NEFF_v1.43.fa'),
+    expand(join(SHARED, 'genomes', '{strain}_assembly.fa'), strain=['Neff', 'C3']),
+    expand(join(SHARED, 'annotations', '{strain}_annotations.gff'), strain=['Neff', 'C3']),
+    expand(join(SHARED, 'proteomes', '{strain}_proteins.fa'), strain=['Neff', 'C3']),
+    expand(join(SHARED, 'annotations', 'rnammer', '{strain}.gff'), strain=['Neff', 'C3']),
+    expand(join(SHARED, 'cds', '{strain}_cds.fa'), strain=['Neff', 'C3']),
+    expand(join(SHARED, 'hic', '{strain}.mcool'), strain=['Neff', 'C3']),
+    url_tbl = join(TMP, 'zenodo_urls.tsv')
   conda: '../envs/zenodo_get.yaml'
+  priority: 100
   params:
     in_dir = IN
   shell:
     """
     zenodo_get -d https://doi.org/10.5281/zenodo.5507417 -w {output.url_tbl}
-    wget $(grep "shared_assets" {output.url_tbl}) -o shared_assets.tar.gz
-    tar xzvf shared_assets.tar.gz --directory={params.in_dir}
+    wget $(grep "shared_assets" {output.url_tbl}) -O - \
+     | tar xzvf - --directory={params.in_dir} >/dev/null
     """
 
 # Download bacterial and viral genomes from interesting species

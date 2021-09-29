@@ -26,8 +26,8 @@ rule rename_entries:
 # Just copying v1 assembly so that filename pattern matches other strains
 rule rename_v1:
     input:
-        genome = join(IN, 'genomes', 'NEFF_v1.fa'),
-        annot = join(IN, 'annotations', 'NEFF_v1.43.gff')
+        genome = join(SHARED, 'genomes', 'NEFF_v1.fa'),
+        annot = join(SHARED, 'annotations', 'NEFF_v1.43.gff')
     output:
         genome = join(TMP, 'renamed', 'NEFF_v1_genome.fa'),
         annot = join(TMP, 'renamed', 'NEFF_v1_annotations.gff')
@@ -53,27 +53,29 @@ rule amoeba_annot_stats:
 
 # 00b Visualise assembly stats
 rule plot_assembly:
-    input: expand(join(TMP, 'renamed', '{strain}_genome.fa'), strain=samples.strain)
+    input:
+        neff_v2 = expand(join(TMP, 'renamed', '{strain}_genome.fa'), strain=samples.strain),
+        neff_v1 = join(SHARED, 'genomes', 'NEFF_v1.fa')
     output: join(OUT, 'plots', 'assembly_radars.svg')
     params:
-        neff_v1 = join(IN, 'genomes', 'NEFF_v1.fa'),
         assembly_tbl = join(TMP, 'assembly_tbl.tsv')
     conda: '../envs/r.yaml'
     shell:
         """
-        assembly-stats -t {input} {params.neff_v1} > {params.assembly_tbl}
+        assembly-stats -t {input.neff_v2} {input.neff_v1} > {params.assembly_tbl}
         Rscript scripts/01_assembly_stats.R {params.assembly_tbl} {output}
         """
 
 rule quast_report:
-  input: expand(join(TMP, 'renamed', '{strain}_genome.fa'), strain=samples.strain)
+  input:
+    neff_v2 = expand(join(TMP, 'renamed', '{strain}_genome.fa'), strain=samples.strain),
+    ref_fa = join(SHARED, 'genomes', 'NEFF_v1.fa')
   output: directory(join(OUT, 'plots', 'acastellanii_quast_report'))
   params:
-    ref_fa = join(IN, 'genomes', 'NEFF_v1.fa'),
-    ref_gff = join(IN, 'annotations', 'NEFF_v1.43.gff')
+    ref_gff = join(SHARED, 'annotations', 'NEFF_v1.43.gff')
   conda: '../envs/quast.yaml'
   threads: NCPUS
-  shell: 'quast -t {threads} -e -o {output} {input} {params.ref_fa}'
+  shell: 'quast -t {threads} -e -o {output} {input.neff_v2} {input.ref_fa}'
 
 rule busco:
     input: join(TMP, 'renamed', '{assembly}_genome.fa')
