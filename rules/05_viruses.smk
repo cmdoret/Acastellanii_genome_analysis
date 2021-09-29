@@ -17,7 +17,7 @@ rule get_viruse:
 # Align virus to amoeba genome
 rule map_virus_amoeba:
     input:
-        virus = directory(join(VIR_GENOMES, '{virus}'))
+        virus = join(VIR_GENOMES, '{virus}')
     output: join(OUT, 'virus', '{strain}', '{virus}.paf')
     params:
         amoeba = lambda w: samples.genome[w.strain]

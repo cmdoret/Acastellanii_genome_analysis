@@ -9,40 +9,13 @@
 
 shell.executable("/bin/bash")
 from collections import defaultdict
-from Bio import SeqIO
 import re
 import time
 from os.path import join, basename
 import numpy as np
 import pandas as pd
-from src import fasta_utils as fu
-from src import misc_utils as mu
-from src import orthology_utils as ou
 # library
-import matplotlib as mpl
-import matplotlib.pyplot as plt
-from matplotlib_venn import venn3, venn2
-mpl.use('TkAgg')
 
-
-# Strains Neff and "old" of Acanthamoeba castellanii
-#Acastellanii_strains = ["Neff", "C3"]
-# OrthoMCL compatible taxon names for both strains 
-#abbr = {"Neff": "Acn", "C3": "Acc"}
-# Bacterial and viral groups of interest
-#taxo_groups = {
-#    'bacteria': [
-#        "Legionella", "Rickettsia", "Parachlamydia", "Protochlamydia", 
-#        "Amoebophilus", "Procabacter"
-#        ],
-#                  
-#    'virus': [
-#        "Pandoravirus", "Marseillevirus", "Megavirus", 
-#        "Acanthamoeba polyphaga mimivirus", "Human herpesvirus", "Megavirus", 
-#        "Aureococcus anophagefferens virus", "Pithovirus sibericum", 
-#        "Lausannevirus"
-#        ]
-#}
 
 configfile: "config.yaml"
 #validate(config, schema='schemas/config.schema.yaml')
@@ -55,7 +28,6 @@ organisms = pd.read_csv(config['compare_species'], sep='\t', comment='#', dtype=
 organisms['clean_name'] = organisms['name'].apply(lambda n: n.lower().replace(" ", "_"))
 
 
-email = 'cmatthey@pasteur.fr'
 # email = input("Please enter your email to download refseq genomes.")
 
 # ===========================

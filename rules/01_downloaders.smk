@@ -8,25 +8,14 @@ rule fetch_proteomes:
     params:
         org = organisms
     threads: 4
-    run:
-        org_df = params['org']
-        organism = org_df.loc[org_df['clean_name'] == f'{wildcards.organism}', 'name']
-        time.sleep(0.1) # Do not spam NCBI :)
-        proteome = fu.name_to_proteins(organism, email=email, filters=" AND refseq[filter]")
-        try:
-            print(f"Writing {proteome.count('>')} proteins for {organism}.")
-            with open(output[0], 'w') as outf:
-                outf.write(proteome)
-        except TypeError:
-            print(f"No proteome found for {organism[0]}")
-            pass
-
-# Remove redundant (95% identical) proteins from each proteome
+    conda: '../envs/viz.yaml'
+    script: '../scripts/01_fetch_proteomes.py'
+# Remove redundant (99% identical) proteins from each proteome to discard duplicates
 rule cdhit_proteomes:
   input: join(OUT, 'proteomes', '{organism}_raw.fa')
   output: join(OUT, 'filtered_proteomes', '{organism}.fa')
   params:
-    sim = 0.95
+    sim = 0.99
   conda: '../envs/cdhit.yaml'
   shell: 'cd-hit -i {input} -o {output} -c {params.sim} -M 0'
 

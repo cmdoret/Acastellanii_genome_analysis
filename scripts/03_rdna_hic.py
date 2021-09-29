@@ -1,16 +1,12 @@
 # Visualize Hi-C matrices and overlay rDNA positions on top
 import sys
-import os.path
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import patches as mpatches
-from scipy.ndimage import gaussian_filter
-import cooler
-from scipy.sparse import coo_matrix
-import hicstuff.hicstuff as hcs
 import matplotlib as mpl
 import matplotlib.gridspec as gridspec
+import cooler
 
 ## LOAD CLI ARGS
 cool_path = sys.argv[1]

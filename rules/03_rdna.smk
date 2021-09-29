@@ -9,6 +9,7 @@ rule plot_matrix_rDNA:
     output: join(OUT, 'plots', 'rdna_mat_{amoeba}.svg')
     params:
         res = 16000
+    conda: '../envs/viz.yaml'
     shell:
         """
         python scripts/03_rdna_hic.py \

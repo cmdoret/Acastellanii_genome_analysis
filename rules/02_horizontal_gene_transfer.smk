@@ -14,32 +14,10 @@ rule get_v1_hgt_gff:
     params:
         gff = join(IN, 'annotations', 'NEFF_v1.43.gff'),
         hgt = join(IN, 'misc', 'NEFF_v1_HGT.tsv')
-    run:
-        hgt_ids = {i.strip() for i in open(params['hgt'])}
-        outf = open(output[0], 'w')
-        with open(params['gff'], 'r') as gff:
-            hgt = False
-            n_exons = 0
-            for line in gff:
-                fields = line.split('\t')
-                if re.match('^#', line):
-                    continue
-                elif fields[2] == 'gene':
-                    # ID chrom start end type strand n_exon gene_len mrna_len attributes
-                    if hgt:
-                        outf.write(f"{curr_hgt.strip()}\t{n_exons}\n")
-                    gene_id = re.search('gene:([^;]+);', fields[8]).group(1)
-                    if gene_id in hgt_ids:
-                        hgt = True 
-                        n_exons = 0
-                        curr_hgt = line
-                    else:
-                        hgt = False
-                elif fields[2] == 'exon':
-                    n_exons += 1
-
+    script: '../scripts/02_get_v1_hgt_gff.py'
 
 # Compute genome statistics in sliding windows on both genomes
+# Requires github.com/cmdoret/dnaglider
 rule genomic_windows:
     input: lambda w: samples.genome[w.strain]
     output: join(OUT, 'dnaglider', '{strain}_windows.tsv')
@@ -68,6 +46,7 @@ rule blast_v1_hgt_vs_ac:
         v2_prots = lambda w: samples.proteome[f"{w.strain}"],
         v2_db = lambda w: temp(join(TMP, 'blast', f'{w.strain}_db'))
     threads: 12
+    conda: '../envs/blast.yaml'
     shell:
         """
         makeblastdb -dbtype prot -in {params.v2_prots} -title neff -out {params.v2_db}
@@ -125,6 +104,7 @@ rule windows_inter_hgt:
         hgt = join(OUT, 'hgt', '{strain}_genes_hgt.bed')
     output: join(OUT, 'hgt', '{strain}_windows_hgt.tsv')
     threads: 6
+    conda: '../envs/genomepy.yaml'
     shell:
         """
         echo -e "chrom\tstart\tend\tgeneID\tHGT\tNEXON\tGC\tGCSKEW\tATSKEW\tENTRO\t2MER\t3MER\t4MER" > {output}

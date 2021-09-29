@@ -28,6 +28,7 @@ rule combine_strains:
         """
 
 # 06 Get collinearity blocks between amoeba and viruses or bacteria
+# Requires: github.com/wyp1125/MCScanX
 rule mcscanx_amoeba:
     input:
         prot = join(TMP, 'merged', 'proteins.fa'),

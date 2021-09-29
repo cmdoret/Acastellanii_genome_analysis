@@ -47,13 +47,15 @@ rule format_presence_mat:
     shell:
         """
         cat {input}/Results_amoeba/Species_Tree/SpeciesTree_rooted.txt > {output.tree}
-        python scripts/02_orthocount_to_fasta.py \
+        python scripts/06_orthocount_to_fasta.py \
             {input}/Results_amoeba/Orthogroups/Orthogroups.GeneCount.tsv \
             {output.matrix}
         """
 
 
 # Infer genes gain / loss events
+# Due to the lack of packaging options, this currently calls
+# an embedded GLOOME binary which only works on linux
 rule GLOOME:
     input:
         matrix = join(TMP, 'GLOOME', 'gene_matrix.fa'),
