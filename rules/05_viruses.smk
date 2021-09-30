@@ -22,7 +22,7 @@ rule map_virus_amoeba:
     output: join(OUT, 'virus', '{strain}', '{virus}.paf')
     threads: 6
     conda: '../envs/genomepy.yaml'
-    shell: "minimap2 -xasm20 -t {threads} {params.amoeba} {input.virus}/*/*fa > {output}"
+    shell: "minimap2 -xasm20 -t {threads} {input.amoeba} {input.virus}/*/*fa > {output}"
 
 
 # Generate a bed file for each strain. Each virus-aligned segment is an interval with 
