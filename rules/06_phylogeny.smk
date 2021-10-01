@@ -1,4 +1,26 @@
 
+# Remove isoforms from Acas proteins to keep only the longest version
+# of each gene
+rule select_primary_transcript:
+    input: join(TMP, 'renamed', '{strain}_proteome.fa')
+    output: join(TMP, 'renamed', '{strain}_proteome_filtered.fa')
+    shell:
+        """
+        # Convert fasta to tabular, sort by seqname, keep longest seq
+        # and convert back to fasta
+        sed 's/>[^ ]* \(.*\)$/>\\1\t/' {input} \
+            | tr -d '\\n' \
+            | sed 's/>/\\n>/g' \
+            | sed '/^$/d' \
+            | awk -vFS='\t' -vOFS='\t' '{{print $2,length($2),$1}}' \
+            | sort -k3,3 -k2,2n \
+            | uniq -f2 \
+            | awk '{{print $3,$1}}' \
+            | sed 's/ /\\n/' \
+            > {output}
+        """
+
+
 # Build pangenome and protein tree from amoeba and bacteria, also including HGT inferred
 # in the first genome paper
 rule orthofinder:
@@ -8,7 +30,7 @@ rule orthofinder:
             organism=organisms.clean_name[organisms['type'] == 'amoeba']
         ),
         ac_proteomes = expand(
-            join(TMP, 'renamed', '{strain}_proteome.fa'),
+            join(TMP, 'renamed', '{strain}_proteome_filtered.fa'),
             strain=samples.strain
         )
         #hgt_neff_v1 = join(OUT, 'hgt', 'NEFF_v1_hgt_cds.fa')
@@ -17,6 +39,7 @@ rule orthofinder:
     params:
       orthofinder_dir = join(TMP, 'orthofinder')
     conda: '../envs/orthofinder.yaml'
+    priority: 10
     shell:
         """
         ulimit -n 10000
@@ -27,7 +50,7 @@ rule orthofinder:
         # Move Ac proteomes as well, but trim proteome from filename
         for strain in {input.ac_proteomes}; do
             fname=$(basename $strain)
-            new_fname="${{fname/_proteome/}}"
+            new_fname="${{fname/_proteome_filtered/}}"
             cp $strain "{params.orthofinder_dir}/$new_fname"
         done
         #cp "{{input.hgt_neff_v1}}" "{params.orthofinder_dir}/"
@@ -83,8 +106,11 @@ rule acastellanii_specific:
         amoeba = organisms.clean_name[organisms['type'] == 'amoeba']
         #bact = organisms.clean_name[organisms['type'] == 'bacteria']
     run:
-        ortho_file = join(input[0], "Results_amoeba", "Orthogroups", "Orthogroups.tsv")
-        ortho = pd.read_csv(ortho_file, sep='\t')
+        ortho_dir = join(input[0], "Results_amoeba", "Orthogroups")
+        ortho = pd.read_csv(join(ortho_dir, 'Orthogroups.tsv'), sep='\t')
+        unassigned = pd.read_csv(join(ortho_dir, 'Orthogroups_UnassignedGenes.tsv'), sep='\t')
+        # Add unassigned genes as self-contained orthogroups
+        ortho = pd.concat([ortho, unassigned], axis=0)
         # Get gene families absent in all of A. castellanii strains
         get_absent = lambda b: b.isnull().values
         st_abs = {strain: get_absent(ortho[strain]) for strain in params['focus_st']}

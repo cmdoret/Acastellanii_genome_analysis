@@ -33,7 +33,8 @@ def get_presence(freqs):
 
 # Store species names and associated ortholog presence code in a dict
 sp_presence = {
-    gc.columns[i]: get_presence(gc.iloc[:, i]) for i in range(1, gc.shape[1] - 1)
+    gc.columns[i]: get_presence(gc.iloc[:, i])
+    for i in range(1, gc.shape[1] - 1)
 }
 
 with open(out_fasta, "w") as fa:
