@@ -150,4 +150,4 @@ rule viz_scaffolds:
         genome = lambda w: samples.genome[w.strain],
         title =  lambda w: f"A. castellanii {w.strain}"
     conda: '../envs/viz.yaml'
-    script: "../scripts/00_plot_karyo.py"
+    script: "../scripts/01_plot_karyo.py"

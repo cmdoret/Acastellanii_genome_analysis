@@ -1,11 +1,15 @@
 # _Acanthamoeba castellanii_ genome analysis
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.5541742.svg)](https://doi.org/10.5281/zenodo.5507417)
 ## Description 
-This repository contains scripts and documentation related to the analysis and comparison of the _Acanthamoeba castellanii_ genome from strains C3 and Neff.
+
+This repository contains scripts and documentation related to the analysis and comparison of the _Acanthamoeba castellanii_ genome from strains C3 and Neff. Analyses include: Annotation statistics, busco, quast, orthologous gene comparison with related species, circos plot, sequence divergence between strains and Hi-C contact profiles at the rDNA sequences.
+
+A frozen copy of this repository as well as output data are available for download in the [associated Zenodo record](https://doi.org/10.5281/zenodo.5507417).
 
 ## Installation
 
-The pipeline is written using snakemake and manages dependencies using conda. Most of the pipeline steps are run inside self-contained conda environments, which are automatically built upon execution. There are two dependencies which cannot be installed using conda and need to be installed separately.
+The pipeline is written using snakemake and manages dependencies using conda. Most of the pipeline steps are run inside self-contained conda environments, which are automatically built upon execution. There are two dependencies (MCScanX and dnaglider) which are not available through conda and need to be installed separately.
 
 **Dependencies:**
 
@@ -17,7 +21,8 @@ The pipeline is written using snakemake and manages dependencies using conda. Mo
 * dnaglider
 * MCScanX
 
-Additionally, the input data must be provided (annotations, genomes, )
+The input data (genomes, annotations, ...) are downloaded automatically from Zenodo when executing the pipeline.
+
 ## Usage
 
  The analyses are separated into distinct workflows in the `rules` directory.

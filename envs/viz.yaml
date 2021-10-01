@@ -11,6 +11,7 @@ dependencies:
   - matplotlib-venn=0.11.6
   - pip=21.2.4
   - python>=3.7
+  - reportlab 
   - requests
   - pysam>0.8
   - scipy=1.7.1
