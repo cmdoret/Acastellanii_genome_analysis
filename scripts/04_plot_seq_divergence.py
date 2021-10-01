@@ -32,7 +32,7 @@ jp.ax_joint.axhline(y=avg_div, linestyle="--")
 jp.ax_marg_x.axvline(x=avg_log_len)
 jp.ax_marg_y.axhline(y=avg_div)
 jp.fig.suptitle(
-    "Neff - C3 gap compressed sequence divergence\n"
+    "Neff - C3 gap excluded sequence divergence\n"
     f"mean divergence length: {100*avg_div:.2f}%"
 )
 plt.savefig(snakemake.output[0])

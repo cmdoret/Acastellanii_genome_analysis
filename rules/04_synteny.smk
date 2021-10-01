@@ -101,7 +101,7 @@ rule circos:
         """
 
 # Measure sequence divergence between both strains
-# We use gap-compressed nucleotide divergence (i.e.
+# We use gap-excluded nucleotide divergence (i.e.
 # Proportion of mismatch in aligned blocks)
 rule get_divergence:
     input:
