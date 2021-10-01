@@ -109,7 +109,7 @@ rule get_divergence:
         neff = join(TMP, 'renamed', 'Neff_genome.fa'),
     output:
         paf = join(TMP, 'c3_vs_neff.paf'),
-        div = join(OUT, 'div', 'c3_vs_neff_gap_compressed_div.bedgraph')
+        div = join(OUT, 'div', 'c3_vs_neff_gap_excluded_div.bedgraph')
     conda: '../envs/genomepy.yaml'
     shell:
         """
@@ -121,7 +121,7 @@ rule get_divergence:
         """
 
 rule plot_divergence:
-    input: join(OUT, 'div', 'c3_vs_neff_gap_compressed_div.bedgraph')
-    output: join(OUT, 'plots', 'c3_vs_neff_gap_compressed_div.svg')
+    input: join(OUT, 'div', 'c3_vs_neff_gap_excluded_div.bedgraph')
+    output: join(OUT, 'plots', 'c3_vs_neff_gap_excluded_div.svg')
     conda: '../envs/viz.yaml'
     script: "../scripts/04_plot_seq_divergence.py"
