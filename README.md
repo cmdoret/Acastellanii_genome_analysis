@@ -34,7 +34,7 @@ The input data (genomes, annotations, ...) are downloaded automatically from Zen
 
 The master script `Snakefile` will call each workflow one after the other. Each workflow contains rules with input and output files, which execute code or external scripts. Each rule is executed in its own conda environment and will download its dependencies on the first execution. The overall workflow can be represented as a graph:
 
-![pipeline graph](doc/dag.svg)
+![pipeline graph](doc/rulegraph.svg)
 
 The `envs` directory contains conda environment build specifications for the different rules.
 
